@@ -1516,19 +1516,26 @@ setInterval(() => {
 }, 30000);
 
 // ==================== Security & Rate Limiting Auth System ====================
-// SHA-256 Hash of: Beetro#Safe$2026/5554/124
+const AUTH_PASSWORD_RAW = 'Beetro#Safe$2026/5554/124';
 const AUTH_PASSWORD_HASH = 'e92892459425fc78da518b426413fcc5b32a8ac68b3eaae2c3055fa49e18573f';
 const MAX_ATTEMPTS = 3;
 const LOCKOUT_MS = 60 * 60 * 1000; // 1 hour lockout
 const AUTH_STORAGE_KEY = 'kadya_auth_session_token';
 const ATTEMPTS_STORAGE_KEY = 'kadya_auth_attempts_meta';
 
-// Fast SHA-256 helper in browser
+// Robust SHA-256 helper with fallback
 async function sha256(message) {
-  const msgBuffer = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  try {
+    if (window.crypto && window.crypto.subtle) {
+      const msgBuffer = new TextEncoder().encode(message);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+  } catch (e) {
+    console.warn('Subtle crypto error:', e);
+  }
+  return '';
 }
 
 function getSecurityMeta() {
@@ -1536,7 +1543,6 @@ function getSecurityMeta() {
     const raw = localStorage.getItem(ATTEMPTS_STORAGE_KEY);
     if (!raw) return { attempts: 0, lockedUntil: 0 };
     const meta = JSON.parse(raw);
-    // If lockout expired, reset
     if (meta.lockedUntil && Date.now() > meta.lockedUntil) {
       const reset = { attempts: 0, lockedUntil: 0 };
       localStorage.setItem(ATTEMPTS_STORAGE_KEY, JSON.stringify(reset));
@@ -1572,16 +1578,16 @@ function renderSecurityState() {
 
   if (meta.lockedUntil && now < meta.lockedUntil) {
     const minutesLeft = Math.ceil((meta.lockedUntil - now) / 60000);
-    pwdInput.disabled = true;
-    submitBtn.disabled = true;
+    pwdInput.disabled = false; // allow typing correct master password to unlock
+    submitBtn.disabled = false;
     attemptsBox.className = 'auth-attempts-indicator warning';
     attemptsText.textContent = `🚫 الحساب مقفل! حاول بعد ${minutesLeft} دقيقة`;
     errorMsg.style.display = 'block';
-    errorMsg.textContent = `تم استنفاد المحاولات الثلاث. تم إيقاف وقفل الوصول تلقائياً لمدة ساعة كاملة (${minutesLeft} دقيقة متبقية).`;
+    errorMsg.textContent = `تم استنفاد المحاولات الثلاث. أدخل كلمة المرور الصحيحة لفك القفل، أو انتظر ${minutesLeft} دقيقة.`;
   } else {
     pwdInput.disabled = false;
     submitBtn.disabled = false;
-    const remaining = MAX_ATTEMPTS - meta.attempts;
+    const remaining = Math.max(0, MAX_ATTEMPTS - (meta.attempts || 0));
     attemptsBox.className = remaining <= 1 ? 'auth-attempts-indicator warning' : 'auth-attempts-indicator';
     attemptsText.textContent = `المحاولات المتبقية: ${remaining} من أصل 3`;
   }
@@ -1609,19 +1615,19 @@ if (authTogglePwd) {
 if (authForm) {
   authForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const meta = getSecurityMeta();
-    const now = Date.now();
+    const entered = (authPwdInput.value || '').trim();
+    if (!entered) return;
 
-    if (meta.lockedUntil && now < meta.lockedUntil) {
-      renderSecurityState();
-      return;
-    }
+    let hash = '';
+    try {
+      hash = await sha256(entered);
+    } catch (err) {}
 
-    const entered = authPwdInput.value;
-    const hash = await sha256(entered);
+    // Verify against hash or direct string
+    const isMatch = (hash && hash === AUTH_PASSWORD_HASH) || (entered === AUTH_PASSWORD_RAW);
 
-    if (hash === AUTH_PASSWORD_HASH) {
-      // Success: Reset attempts and set session token
+    if (isMatch) {
+      // Success: Reset attempts, clear lockout and set session token
       localStorage.setItem(ATTEMPTS_STORAGE_KEY, JSON.stringify({ attempts: 0, lockedUntil: 0 }));
       const token = 'authenticated_' + AUTH_PASSWORD_HASH.slice(0, 16);
       sessionStorage.setItem(AUTH_STORAGE_KEY, token);
@@ -1633,6 +1639,7 @@ if (authForm) {
       fetchOrders(true);
     } else {
       // Failed Attempt
+      const meta = getSecurityMeta();
       meta.attempts = (meta.attempts || 0) + 1;
       if (meta.attempts >= MAX_ATTEMPTS) {
         meta.lockedUntil = Date.now() + LOCKOUT_MS;
@@ -1642,10 +1649,10 @@ if (authForm) {
       authPwdInput.value = '';
       authErrorMsg.style.display = 'block';
 
-      if (meta.lockedUntil) {
+      if (meta.lockedUntil && Date.now() < meta.lockedUntil) {
         authErrorMsg.textContent = '⛔ كلمة المرور خاطئة! تم قفل لوحة التحكم لمدة ساعة كاملة بعد استنفاد 3 محاولات.';
       } else {
-        const left = MAX_ATTEMPTS - meta.attempts;
+        const left = Math.max(0, MAX_ATTEMPTS - meta.attempts);
         authErrorMsg.textContent = `❌ كلمة المرور غير صحيحة! تبقت لك ${left} محاولة فقط قبل القفل لساعة.`;
       }
       renderSecurityState();
