@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kadya - لوحة إدارة الطلبات</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="admin-header">
+    <div class="header-container">
+      <div class="header-brand">
+        <div class="brand-badge">K</div>
+        <div class="brand-text">
+          <h1>Kadya <span>Orders</span></h1>
+          <p>لوحة التحكم الرسمية المرتبطة بـ Google Sheets</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="sync-status" id="sync-status">
+          <span class="status-dot online"></span>
+          <span class="status-label" id="sync-status-text">متصل ومحدث (Google Sheet)</span>
+        </div>
+
+        <button class="btn btn-secondary" id="refresh-btn" title="تحديث البيانات">
+          <svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+          <span>تحديث</span>
+        </button>
+
+        <button class="btn btn-primary" id="new-order-btn">
+          <svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>طلب يدوي جديد</span>
+        </button>
+
+        <button class="btn btn-secondary" id="logout-btn" title="تسجيل الخروج" style="border-color: rgba(239, 68, 68, 0.3); color: #f87171;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span>خروج</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Secure Login Lock Screen -->
+  <div class="auth-lock-overlay" id="auth-lock-screen" style="display: flex;">
+    <div class="auth-card">
+      <div class="auth-icon-wrap">
+        <div class="auth-brand-logo">K</div>
+        <div class="auth-shield-badge">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        </div>
+      </div>
+
+      <div class="auth-header-text">
+        <h2>Kadya Orders Dashboard</h2>
+        <p>منطقة مشفرة ومحمية — خاص بالإدارة فقط</p>
+      </div>
+
+      <div class="auth-attempts-indicator" id="auth-attempts-box">
+        <span class="attempts-icon">🔒</span>
+        <span id="auth-attempts-text">المحاولات المتبقية: 3 محاولات</span>
+      </div>
+
+      <form id="auth-login-form" class="auth-form" autocomplete="off">
+        <div class="auth-input-group">
+          <input type="password" id="auth-password-input" class="auth-input" placeholder="أدخل كلمة المرور السرية..." required autofocus>
+          <button type="button" class="auth-toggle-pwd" id="auth-toggle-pwd" title="إظهار / إخفاء">
+            <svg id="eye-show" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <svg id="eye-hide" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+              <line x1="1" y1="1" x2="23" y2="23"></line>
+            </svg>
+          </button>
+        </div>
+
+        <div class="auth-error-msg" id="auth-error-msg" style="display: none;"></div>
+
+        <button type="submit" class="auth-submit-btn" id="auth-submit-btn">
+          <span>تأكيد وتسجيل الدخول</span>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+      </form>
+
+      <div class="auth-footer-notes">
+        <p>🔒 يتم قفل الوصول تلقائياً لمدة 60 دقيقة بعد 3 محاولات خاطئة متتالية.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <main class="dashboard-main">
+    <!-- Statistics KPI Cards -->
+    <section class="kpi-grid">
+      <div class="kpi-card" data-filter="all">
+        <div class="kpi-icon total">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <path d="M16 10a4 4 0 0 1-8 0"></path>
+          </svg>
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-title">إجمالي الطلبات</span>
+          <h3 class="kpi-value" id="kpi-total">0</h3>
+        </div>
+      </div>
+
+      <div class="kpi-card" data-filter="جديد">
+        <div class="kpi-icon new">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-title">طلبات جديدة</span>
+          <h3 class="kpi-value badge-new" id="kpi-new">0</h3>
+        </div>
+      </div>
+
+      <div class="kpi-card" data-filter="مؤكد">
+        <div class="kpi-icon confirmed">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-title">طلبات مؤكدة</span>
+          <h3 class="kpi-value badge-confirmed" id="kpi-confirmed">0</h3>
+        </div>
+      </div>
+
+      <div class="kpi-card" data-filter="مؤجلة">
+        <div class="kpi-icon shipping">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-title">طلبات مؤجلة</span>
+          <h3 class="kpi-value badge-shipping" id="kpi-postponed">0</h3>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-icon revenue">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="1" x2="12" y2="23"></line>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-title">المداخيل المتوقعة</span>
+          <h3 class="kpi-value text-revenue" id="kpi-revenue">0 DA</h3>
+        </div>
+      </div>
+    </section>
+
+    <!-- Controls -->
+    <section class="table-controls">
+      <div class="search-box">
+        <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="search-input" placeholder="بحث برقم الطلبية، الاسم، الهاتف، أو البلدية...">
+        <button id="clear-search" class="clear-btn" style="display: none;">&times;</button>
+      </div>
+
+      <div class="filter-select-wrapper">
+        <select id="wilaya-filter" class="filter-select">
+          <option value="">جميع الولايات</option>
+        </select>
+      </div>
+
+      <div class="status-tabs" id="status-tabs">
+        <button class="tab active" data-status="all">الكل (<span id="count-all">0</span>)</button>
+        <button class="tab" data-status="جديد">جديد (<span id="count-new">0</span>)</button>
+        <button class="tab" data-status="فاشلة 1">فاشلة 1 (<span id="count-failed1">0</span>)</button>
+        <button class="tab" data-status="مؤكدة">مؤكدة (<span id="count-confirmed">0</span>)</button>
+        <button class="tab" data-status="مؤجلة">مؤجلة (<span id="count-postponed">0</span>)</button>
+        <button class="tab" data-status="ملغاة">ملغاة (<span id="count-cancelled">0</span>)</button>
+        <button class="tab" data-status="فاشلة 2">فاشلة 2 (<span id="count-failed2">0</span>)</button>
+        <button class="tab" data-status="فاشلة 3">فاشلة 3 (<span id="count-failed3">0</span>)</button>
+      </div>
+    </section>
+
+    <!-- Orders Table: Exactly the 12 columns from Google Sheet -->
+    <section class="table-card">
+      <div class="table-responsive">
+        <table class="orders-table" id="orders-table">
+          <thead>
+            <tr>
+              <th style="width: 105px;">1. رقم طلبية</th>
+              <th style="width: 110px;">2. الوقت</th>
+              <th>3. إسم</th>
+              <th style="width: 125px;">4. حالة الطلب</th>
+              <th style="width: 125px;">5. هاتف</th>
+              <th style="width: 135px;">6. الولاية</th>
+              <th style="width: 130px;">7. البلدية</th>
+              <th style="width: 65px;">8. المقاس</th>
+              <th style="width: 85px;">9. التوصيل</th>
+              <th style="width: 85px;">10. سعر التوصيل</th>
+              <th style="width: 95px;">11. الإجمالي</th>
+              <th>12. ملاحظات</th>
+              <th style="width: 60px;">إجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="orders-tbody">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="empty-state" id="empty-state" style="display: none;">
+        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+        <h4>لا توجد طلبات مطابقة</h4>
+        <p>جرب تغيير خيارات التصفية أو البحث</p>
+      </div>
+
+      <div class="loading-state" id="loading-state">
+        <div class="spinner"></div>
+        <p>جاري جلب الطلبات مباشرة من Google Sheet...</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Edit & Details Modal -->
+  <!-- Edit Order Modal -->
+  <div class="modal-overlay" id="order-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <span class="modal-badge" id="modal-order-id">CMD-000000</span>
+          <h3 id="modal-customer-name">تفاصيل وتعديل الطلب</h3>
+        </div>
+        <button class="modal-close" id="modal-close-btn">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="customer-actions-box">
+          <div class="customer-quick-info">
+            <div class="info-item">
+              <span class="info-label">الهاتف:</span>
+              <span class="info-val font-mono" id="modal-phone">0555000000</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">المقاس:</span>
+              <span class="info-val badge-size" id="modal-size">42</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">طريقة التوصيل:</span>
+              <span class="info-val" id="modal-shipping">مكتب (500 DA)</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">الإجمالي:</span>
+              <span class="info-val font-bold text-accent" id="modal-total">4,900.00 DA</span>
+            </div>
+          </div>
+
+          <div class="quick-contact-btns">
+            <a href="#" target="_blank" id="modal-whatsapp-btn" class="btn btn-whatsapp">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.634.072-1.895-.447-1.428-.588-2.346-2.04-2.417-2.135-.072-.095-.575-.765-.575-1.46 0-.695.362-1.036.491-1.18.129-.144.281-.18.375-.18.093 0 .188.001.27.005.086.004.202-.033.316.241.12.288.412 1.01.448 1.084.036.074.06.162.012.257-.048.096-.072.155-.144.24-.072.084-.153.188-.218.252-.072.072-.148.15-.064.294.084.144.373.616.8 1.002.551.498 1.015.653 1.159.725.144.072.228.06.312-.036.085-.096.362-.42.459-.564.096-.144.193-.12.325-.072.133.048.841.396.985.468.145.072.24.108.277.168.036.06.036.353-.108.758z"/>
+              </svg>
+            </a>
+
+            <a href="#" id="modal-call-btn" class="btn btn-call">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+              </svg>
+            </a>
+          </div>
+        </div>
+
+        <form id="modal-edit-form" class="modal-form">
+          <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr;">
+            <div class="form-group">
+              <label for="modal-input-status">4. حالة الطلب:</label>
+              <select id="modal-input-status" class="form-control select-status">
+                <option value="جديد">جديد</option>
+                <option value="فاشلة 1">فاشلة 1</option>
+                <option value="مؤكدة">مؤكدة</option>
+                <option value="ملغاة">ملغاة</option>
+                <option value="مؤجلة">مؤجلة</option>
+                <option value="فاشلة 2">فاشلة 2</option>
+                <option value="فاشلة 3">فاشلة 3</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="modal-input-shipping">9. التوصيل:</label>
+              <select id="modal-input-shipping" class="form-control">
+                <option value="مكتب">مكتب (Stop Desk)</option>
+                <option value="منزل">منزل (Domicile)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="modal-input-wilaya">6. الولاية:</label>
+              <select id="modal-input-wilaya" class="form-control">
+                <!-- Populated dynamically with 58 wilayas -->
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="modal-select-commune">7. البلدية / المكتب:</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <select id="modal-select-commune" class="form-control">
+                <option value="">-- اختر البلدية من القائمة --</option>
+              </select>
+              <input type="text" id="modal-input-commune" class="form-control" placeholder="أو اكتب اسم البلدية يدوياً...">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="modal-input-notes">12. ملاحظات:</label>
+            <textarea id="modal-input-notes" class="form-control textarea" rows="3" placeholder="أضف ملاحظات للمتابعة..."></textarea>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="modal-cancel-btn">إلغاء</button>
+            <button type="submit" class="btn btn-primary" id="modal-save-btn">
+              <span class="save-text">حفظ التعديل في Sheet</span>
+              <span class="save-spinner" style="display: none;">جاري الحفظ...</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create New Order Modal -->
+  <div class="modal-overlay" id="create-order-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <span class="modal-badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3);">طلب جديد</span>
+          <h3>إضافة طلبية يدوية جديدة</h3>
+        </div>
+        <button class="modal-close" id="create-modal-close-btn">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <form id="create-order-form" class="modal-form">
+          <div class="form-row" style="grid-template-columns: 1.2fr 1fr;">
+            <div class="form-group">
+              <label for="create-input-name">3. إسم العميل <span style="color:#ef4444;">*</span>:</label>
+              <input type="text" id="create-input-name" class="form-control" placeholder="أدخل اسم العميل الكامل..." required>
+            </div>
+
+            <div class="form-group">
+              <label for="create-input-phone">5. رقم الهاتف <span style="color:#ef4444;">*</span>:</label>
+              <input type="tel" id="create-input-phone" class="form-control font-mono" placeholder="05 / 06 / 07..." required>
+            </div>
+          </div>
+
+          <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr;">
+            <div class="form-group">
+              <label for="create-input-status">4. حالة الطلب:</label>
+              <select id="create-input-status" class="form-control select-status">
+                <option value="جديد" selected>جديد</option>
+                <option value="فاشلة 1">فاشلة 1</option>
+                <option value="مؤكدة">مؤكدة</option>
+                <option value="ملغاة">ملغاة</option>
+                <option value="مؤجلة">مؤجلة</option>
+                <option value="فاشلة 2">فاشلة 2</option>
+                <option value="فاشلة 3">فاشلة 3</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="create-input-shipping">9. التوصيل:</label>
+              <select id="create-input-shipping" class="form-control">
+                <option value="مكتب" selected>مكتب (500 DA)</option>
+                <option value="منزل">منزل (700 DA)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="create-input-size">8. المقاس:</label>
+              <select id="create-input-size" class="form-control font-mono">
+                <option value="39">39</option>
+                <option value="40">40</option>
+                <option value="41">41</option>
+                <option value="42" selected>42</option>
+                <option value="43">43</option>
+                <option value="44">44</option>
+                <option value="45">45</option>
+                <option value="46">46</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row" style="grid-template-columns: 1.2fr 1.8fr;">
+            <div class="form-group">
+              <label for="create-input-wilaya">6. الولاية <span style="color:#ef4444;">*</span>:</label>
+              <select id="create-input-wilaya" class="form-control">
+                <!-- Populated dynamically with 58 wilayas -->
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="create-select-commune">7. البلدية / المكتب:</label>
+              <select id="create-select-commune" class="form-control">
+                <option value="">-- اختر من القائمة --</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+            <div class="form-group">
+              <label>10. سعر التوصيل:</label>
+              <input type="text" id="create-input-fee" class="form-control font-mono" value="500 DA" readonly style="background: rgba(255,255,255,0.04); color: #94a3b8;">
+            </div>
+            <div class="form-group">
+              <label>11. الإجمالي المتوقع:</label>
+              <input type="text" id="create-input-total" class="form-control font-mono font-bold" value="4,900.00 DA" readonly style="background: rgba(56, 189, 248, 0.08); color: #38bdf8;">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="create-input-notes">12. ملاحظات:</label>
+            <textarea id="create-input-notes" class="form-control textarea" rows="2" placeholder="أضف ملاحظات (اختياري)..."></textarea>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="create-modal-cancel-btn">إلغاء</button>
+            <button type="submit" class="btn btn-primary" id="create-modal-submit-btn">
+              <span class="save-text">+ إضافة وحفظ في Google Sheet</span>
+              <span class="save-spinner" style="display: none;">جاري التسجيل...</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="مكاتب التوصيل/data.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

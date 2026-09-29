@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BOOTS DE SECURITE BEETRO &ndash; Kadya</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="header-inner">
+      <!-- Left -->
+      <div class="header-left">
+        <!-- Mobile hamburger -->
+        <button class="mobile-menu-btn" aria-label="Menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+
+        <!-- Desktop Nav -->
+        <nav class="desktop-nav">
+          <a href="#" class="nav-link active">Home</a>
+          <a href="#" class="nav-link">Catalog</a>
+          <a href="#" class="nav-link">Contact</a>
+        </nav>
+      </div>
+
+      <!-- Center Logo -->
+      <div class="header-center">
+        <a href="/" class="site-logo">Kadya</a>
+      </div>
+
+      <!-- Header Actions (Right) -->
+      <div class="header-actions">
+        <button class="action-btn" aria-label="Recherche">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </button>
+        <button class="action-btn" aria-label="Compte">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+        </button>
+        <button class="action-btn cart-btn" aria-label="Panier">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <path d="M16 10a4 4 0 0 1-8 0"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Product Section -->
+  <main class="product-main">
+    <div class="product-container">
+      
+      <!-- Gallery Column -->
+      <div class="product-gallery">
+        <div class="gallery-track">
+          <div class="gallery-image-wrapper active" data-index="0">
+            <img src="assets/boot1.jpg" alt="BOOTS DE SECURITE BEETRO" class="gallery-img" id="main-product-img">
+          </div>
+          <div class="gallery-image-wrapper secondary-view" data-index="1">
+            <img src="assets/boot2.jpg" alt="BOOTS DE SECURITE BEETRO Vue 2" class="gallery-img">
+          </div>
+        </div>
+        <!-- Mobile Carousel Dots -->
+        <div class="carousel-dots">
+          <span class="dot active" data-slide="0"></span>
+          <span class="dot" data-slide="1"></span>
+        </div>
+      </div>
+
+      <!-- Details Column -->
+      <div class="product-details">
+        
+        <h1 class="product-title">BOOTS DE SECURITE BEETRO</h1>
+        
+        <div class="product-price">DA 4,400.00</div>
+
+        <!-- Mobile Top Buy Now Button -->
+        <a href="#cod-order-form" class="mobile-order-now-btn">
+          <span>أطلب الآن</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 6h-2c0-2.76-2.24-5-5-5S7 3.24 7 6H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7-3c1.66 0 3 1.34 3 3H9c0-1.66 1.34-3 3-3zm7 17H5V8h14v12zm-7-8c-1.66 0-3-1.34-3-3H7c0 2.76 2.24 5 5 5s5-2.24 5-5h-2c0 1.66-1.34 3-3 3z"/>
+          </svg>
+        </a>
+
+        <!-- Variant Picker: Pointure -->
+        <div class="variant-picker-section">
+          <label class="variant-label">Pointure</label>
+          <div class="variant-pills" id="size-picker">
+            <button type="button" class="size-pill" data-size="46">46</button>
+            <button type="button" class="size-pill" data-size="45">45</button>
+            <button type="button" class="size-pill" data-size="44">44</button>
+            <button type="button" class="size-pill" data-size="43">43</button>
+            <button type="button" class="size-pill active" data-size="42">42</button>
+            <button type="button" class="size-pill" data-size="41">41</button>
+            <button type="button" class="size-pill" data-size="40">40</button>
+            <button type="button" class="size-pill" data-size="39">39</button>
+          </div>
+        </div>
+
+        <!-- COD Checkout Form Box -->
+        <div class="cod-card" id="cod-order-form">
+          <div class="leadform-title">
+            <h2>أضف معلوماتك في الأسفل للطلب</h2>
+            <p>المرجو إدخال معلوماتك الخاصة بك</p>
+          </div>
+
+          <form class="leadform-form" id="leadform-submit-form" novalidate autocomplete="off">
+            
+            <!-- Field 1: Prénom -->
+            <div class="form-field">
+              <label class="form-label">
+                Prénom <span class="required-asterisk">*</span>
+              </label>
+              <div class="input-container">
+                <div class="input-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor">
+                    <path d="M480-480q-60 0-102-42t-42-102q0-60 42-102t102-42q60 0 102 42t42 102q0 60-42 102t-102 42ZM192-192v-96q0-23 12.5-43.5T239-366q55-32 116.5-49T480-432q63 0 124.5 17T721-366q22 13 34.5 34t12.5 44v96H192Z"></path>
+                  </svg>
+                </div>
+                <input type="text" class="form-input" id="first_name" name="first_name" placeholder="أدخل اسمك الأول" required>
+              </div>
+              <div class="field-error-msg" id="first-name-error"></div>
+            </div>
+
+            <!-- Field 2: Téléphone -->
+            <div class="form-field">
+              <label class="form-label">
+                Téléphone <span class="required-asterisk">*</span>
+              </label>
+              <div class="input-container">
+                <div class="input-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"></path>
+                  </svg>
+                </div>
+                <input type="tel" inputmode="numeric" pattern="[0-9]*" class="form-input" id="phone" name="phone" placeholder="أدخل رقم هاتفك" required autocomplete="tel">
+              </div>
+              <div class="field-error-msg" id="phone-error"></div>
+            </div>
+
+            <!-- Field 3: Wilaya -->
+            <div class="form-field">
+              <label class="form-label">
+                wilaya <span class="required-asterisk">*</span>
+              </label>
+              <!-- Hidden native select for form validation & submission -->
+              <select class="form-input location-select" id="province" name="province" required style="display: none;">
+                <option value="">اختر الولاية</option>
+                <option value="01">01 Adrar أدرار</option>
+                <option value="02">02 Chlef الشلف</option>
+                <option value="03">03 Laghouat الأغواط</option>
+                <option value="04">04 Oum el Bouaghi أم البواقي</option>
+                <option value="05">05 Batna باتنة</option>
+                <option value="06">06 Béjaïa بجاية</option>
+                <option value="07">07 Biskra بسكرة</option>
+                <option value="08">08 Béchar بشار</option>
+                <option value="09">09 Blida البليدة</option>
+                <option value="10">10 Bouira البويرة</option>
+                <option value="11">11 Tamanrasset تمنراست</option>
+                <option value="12">12 Tébessa تبسة</option>
+                <option value="13">13 Tlemcen تلمسان</option>
+                <option value="14">14 Tiaret تيارت</option>
+                <option value="15">15 Tizi Ouzou تيزي وزو</option>
+                <option value="16">16 Alger الجزائر</option>
+                <option value="17">17 Djelfa الجلفة</option>
+                <option value="18">18 Jijel جيجل</option>
+                <option value="19">19 Sétif سطيف</option>
+                <option value="20">20 Saïda سعيدة</option>
+                <option value="21">21 Skikda سكيكدة</option>
+                <option value="22">22 Sidi Bel Abbès سيدي بلعباس</option>
+                <option value="23">23 Annaba عنابة</option>
+                <option value="24">24 Guelma قالمة</option>
+                <option value="25">25 Constantine قسنطينة</option>
+                <option value="26">26 Médéa المدية</option>
+                <option value="27">27 Mostaganem مستغانم</option>
+                <option value="28">28 M'sila المسيلة</option>
+                <option value="29">29 Mascara معسكر</option>
+                <option value="30">30 Ouargla ورقلة</option>
+                <option value="31">31 Oran وهران</option>
+                <option value="32">32 El Bayadh البيض</option>
+                <option value="33">33 Illizi إليزي</option>
+                <option value="34">34 Bordj Bou Arréridj برج بوعريريج</option>
+                <option value="35">35 Boumerdès بومرداس</option>
+                <option value="36">36 El Tarf الطارف</option>
+                <option value="37">37 Tindouf تندوف</option>
+                <option value="38">38 Tissemsilt تيسمسيلت</option>
+                <option value="39">39 El Oued الوادي</option>
+                <option value="40">40 Khenchela خنشلة</option>
+                <option value="41">41 Souk Ahras سوق أهراس</option>
+                <option value="42">42 Tipaza تيبازة</option>
+                <option value="43">43 Mila ميلة</option>
+                <option value="44">44 Aïn Defla عين الدفلى</option>
+                <option value="45">45 Naâma النعامة</option>
+                <option value="46">46 Aïn Témouchent عين تموشنت</option>
+                <option value="47">47 Ghardaïa غرداية</option>
+                <option value="48">48 Relizane غليزان</option>
+                <option value="49">49 Timimoun تيميمون</option>
+                <option value="50">50 Bordj Badji Mokhtar برج باجي مختار</option>
+                <option value="51">51 Ouled Djellal أولاد جلال</option>
+                <option value="52">52 Béni Abbès بني عباس</option>
+                <option value="53">53 In Salah عين صالح</option>
+                <option value="54">54 In Guezzam عين قزام</option>
+                <option value="55">55 Touggourt تقرت</option>
+                <option value="56">56 Djanet جانت</option>
+                <option value="57">57 El M'ghair المغير</option>
+                <option value="58">58 El Meniaa المنيعة</option>
+              </select>
+
+              <!-- Custom Attractive Wilaya Selector -->
+              <div class="custom-wilaya-selector" id="custom-wilaya-selector">
+                <div class="custom-wilaya-trigger" id="custom-wilaya-trigger" tabindex="0" role="button" aria-haspopup="listbox" aria-expanded="false">
+                  <div class="trigger-left">
+                    <span class="wilaya-field-icon">
+                      <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor">
+                        <path d="M444-96v-192H240l-96-108 96-108h204v-72H192v-216h252v-72h72v72h204l96 108-96 108H516v72h252v216H516v192h-72Z"></path>
+                      </svg>
+                    </span>
+                    <span class="trigger-label" id="custom-wilaya-display">اختر الولاية</span>
+                  </div>
+                  <span class="trigger-arrow">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="m6 9 6 6 6-6"/>
+                    </svg>
+                  </span>
+                </div>
+
+                <!-- Custom Dropdown Card -->
+                <div class="custom-wilaya-dropdown" id="custom-wilaya-dropdown">
+                  <div class="wilaya-search-header">
+                    <div class="wilaya-search-input-wrap">
+                      <svg class="search-svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                      </svg>
+                      <input type="text" id="wilaya-search-input" placeholder="ابحث برقم الولاية أو اسمها..." autocomplete="off">
+                      <button type="button" class="clear-search-btn" id="clear-wilaya-search" style="display: none;">&times;</button>
+                    </div>
+                  </div>
+                  <div class="wilaya-options-scroll" id="wilaya-options-list" role="listbox">
+                    <!-- Populated dynamically via JS -->
+                  </div>
+                </div>
+              </div>
+              <div class="field-error-msg" id="province-error"></div>
+            </div>
+
+            <!-- Field 4: Options de livraison -->
+            <div class="leadform-delivery-container">
+              <div class="leadform-delivery-header">
+                <span class="delivery-header-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4 5.25a.75.75 0 0 1 .75-.75h6.991a2.75 2.75 0 0 1 2.645 1.995l.427 1.494a.25.25 0 0 0 .18.173l1.681.421a1.75 1.75 0 0 1 1.326 1.698v1.219a1.75 1.75 0 0 1-1.032 1.597 2.5 2.5 0 1 1-4.955.153h-3.025a2.5 2.5 0 1 1-4.78-.75h-.458a.75.75 0 0 1 0-1.5h2.5c.03 0 .06.002.088.005a2.493 2.493 0 0 1 1.947.745h4.43a2.493 2.493 0 0 1 1.785-.75c.698 0 1.33.286 1.783.748a.25.25 0 0 0 .217-.248v-1.22a.25.25 0 0 0-.19-.242l-1.682-.42a1.75 1.75 0 0 1-1.258-1.217l-.427-1.494a1.25 1.25 0 0 0-1.202-.907h-6.991a.75.75 0 0 1-.75-.75Zm2.5 9.25a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm8 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"></path>
+                    <path d="M3.25 8a.75.75 0 0 0 0 1.5h5a.75.75 0 0 0 0-1.5h-5Z"></path>
+                  </svg>
+                </span>
+                <span class="delivery-header-text">Options de livraison</span>
+              </div>
+
+              <div class="leadform-shipping-choices">
+                <label class="leadform-shipping-option" id="opt-desk">
+                  <input type="radio" name="shipping_choice" value="desk" data-price="500" checked>
+                  <div class="shipping-option-info">
+                    <span class="shipping-option-title">المكتب</span>
+                  </div>
+                  <span class="shipping-option-price">500.00 DA</span>
+                </label>
+
+                <label class="leadform-shipping-option" id="opt-home">
+                  <input type="radio" name="shipping_choice" value="home" data-price="700">
+                  <div class="shipping-option-info">
+                    <span class="shipping-option-title">المنزل</span>
+                  </div>
+                  <span class="shipping-option-price">700.00 DA</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Order Summary -->
+            <div class="leadform-summary">
+              <!-- Subtotal Row -->
+              <div class="summary-row">
+                <span class="summary-label">
+                  <svg class="summary-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M2.5 3.75a.75.75 0 0 1 .75-.75h1.612a1.75 1.75 0 0 1 1.732 1.5h9.656a.75.75 0 0 1 .748.808l-.358 4.653a2.75 2.75 0 0 1-2.742 2.539h-6.351l.093.78a.25.25 0 0 0 .248.22h6.362a.75.75 0 0 1 0 1.5h-6.362a1.75 1.75 0 0 1-1.738-1.543l-1.04-8.737a.25.25 0 0 0-.248-.22h-1.612a.75.75 0 0 1-.75-.75Zm4.868 7.25h6.53a1.25 1.25 0 0 0 1.246-1.154l.296-3.846h-8.667l.595 5Z"></path>
+                    <path d="M10 17a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path>
+                    <path d="M15 17a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path>
+                  </svg>
+                  Sous-total
+                </span>
+                <span class="summary-value" id="summary-subtotal">4,400.00 DA</span>
+              </div>
+
+              <!-- Shipping Row -->
+              <div class="summary-row summary-row-shipping">
+                <span class="summary-label">
+                  <svg class="summary-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4 5.25a.75.75 0 0 1 .75-.75h6.991a2.75 2.75 0 0 1 2.645 1.995l.427 1.494a.25.25 0 0 0 .18.173l1.681.421a1.75 1.75 0 0 1 1.326 1.698v1.219a1.75 1.75 0 0 1-1.032 1.597 2.5 2.5 0 1 1-4.955.153h-3.025a2.5 2.5 0 1 1-4.78-.75h-.458a.75.75 0 0 1 0-1.5h2.5c.03 0 .06.002.088.005a2.493 2.493 0 0 1 1.947.745h4.43a2.493 2.493 0 0 1 1.785-.75c.698 0 1.33.286 1.783.748a.25.25 0 0 0 .217-.248v-1.22a.25.25 0 0 0-.19-.242l-1.682-.42a1.75 1.75 0 0 1-1.258-1.217l-.427-1.494a1.25 1.25 0 0 0-1.202-.907h-6.991a.75.75 0 0 1-.75-.75Zm2.5 9.25a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm8 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"></path>
+                    <path d="M3.25 8a.75.75 0 0 0 0 1.5h5a.75.75 0 0 0 0-1.5h-5Z"></path>
+                  </svg>
+                  Livraison
+                </span>
+                <span class="summary-shipping" id="summary-shipping">500.00 DA</span>
+              </div>
+
+              <!-- Total Row -->
+              <div class="summary-row total">
+                <span class="summary-label">
+                  <svg class="summary-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M6.5 6.25a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-3Zm1.5 2.5v-2h4v2h-4Z"></path>
+                    <path d="M6.5 11.75a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75Z"></path>
+                    <path d="M11.25 11a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5h-1.5Z"></path>
+                    <path d="M6.5 14a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75Z"></path>
+                    <path d="M11.25 13.25a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5h-1.5Z"></path>
+                    <path fill-rule="evenodd" d="M6.75 3a2.75 2.75 0 0 0-2.75 2.75v8.5a2.75 2.75 0 0 0 2.75 2.75h6.5a2.75 2.75 0 0 0 2.75-2.75v-8.5a2.75 2.75 0 0 0-2.75-2.75h-6.5Zm-1.25 2.75c0-.69.56-1.25 1.25-1.25h6.5c.69 0 1.25.56 1.25 1.25v8.5c0 .69-.56 1.25-1.25 1.25h-6.5c-.69 0-1.25-.56-1.25-1.25v-8.5Z"></path>
+                  </svg>
+                  Total
+                </span>
+                <span class="leadform-total" id="summary-total">4,900.00 DA</span>
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="leadform-form-buttons">
+              <button type="submit" class="leadform-button lfcod-btn-animation-bounce" id="submit-order-btn">
+                <div class="btn-content">
+                  <div class="btn-title-row">
+                    <span class="btn-icon">
+                      <svg width="20" height="20" viewBox="0 -960 960 960" fill="currentColor">
+                        <path d="M216-96q-29.7 0-50.85-21.15Q144-138.3 144-168v-480q0-29.7 21.15-50.85Q186.3-720 216-720h72q0-79.68 56.23-135.84 56.22-56.16 136-56.16Q560-912 616-855.84q56 56.16 56 135.84h72q29.7 0 50.85 21.15Q816-677.7 816-648v480q0 29.7-21.15 50.85Q773.7-96 744-96H216Zm264.23-288Q560-384 616-440.16q56-56.16 56-135.84h-72q0 50-35 85t-85 35q-50 0-85-35t-35-85h-72q0 80 56.23 136 56.22 56 136 56ZM360-720h240q0-50-35-85t-85-35q-50 0-85 35t-35 85Z"></path>
+                      </svg>
+                    </span>
+                    <span class="btn-text">Commander Maintenant</span>
+                  </div>
+                  <div class="btn-spinner" style="display: none;">
+                    <div class="spinner-ring"></div>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+          </form>
+        </div>
+
+      </div>
+    </div>
+
+
+  <!-- Order Success Modal -->
+  <div class="modal-backdrop" id="success-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#1c5493" stroke-width="2.5">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+      </div>
+      <h2>تم تأكيد طلبك بنجاح!</h2>
+      <p class="modal-sub">شكراً لك، سنتصل بك قريباً لتأكيد معلومات التوصيل.</p>
+      
+      <div class="modal-order-details" id="modal-order-summary">
+        <!-- Injected via JS -->
+      </div>
+
+      <button type="button" class="modal-close-btn" id="modal-close-btn">موافق</button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <p>&copy; 2026, Kadya. جميع الحقوق محفوظة.</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
