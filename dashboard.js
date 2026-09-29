@@ -1577,13 +1577,14 @@ function renderSecurityState() {
   const now = Date.now();
 
   if (meta.lockedUntil && now < meta.lockedUntil) {
-    const minutesLeft = Math.ceil((meta.lockedUntil - now) / 60000);
-    pwdInput.disabled = false; // allow typing correct master password to unlock
-    submitBtn.disabled = false;
+    const msLeft = meta.lockedUntil - now;
+    const minutesLeft = Math.floor(msLeft / 60000);
+    const secondsLeft = Math.floor((msLeft % 60000) / 1000);
+    const timeFormatted = `${minutesLeft} دقيقة و ${secondsLeft < 10 ? '0' : ''}${secondsLeft} ثانية`;
     attemptsBox.className = 'auth-attempts-indicator warning';
-    attemptsText.textContent = `🚫 الحساب مقفل! حاول بعد ${minutesLeft} دقيقة`;
+    attemptsText.textContent = `🚫 مقفل! متبقي: ${timeFormatted}`;
     errorMsg.style.display = 'block';
-    errorMsg.textContent = `تم استنفاد المحاولات الثلاث. أدخل كلمة المرور الصحيحة لفك القفل، أو انتظر ${minutesLeft} دقيقة.`;
+    errorMsg.textContent = `تم استنفاد 3 محاولات. النظام مقفل لمدة 60 دقيقة (${timeFormatted} متبقية).`;
   } else {
     pwdInput.disabled = false;
     submitBtn.disabled = false;
@@ -1592,6 +1593,16 @@ function renderSecurityState() {
     attemptsText.textContent = `المحاولات المتبقية: ${remaining} من أصل 3`;
   }
 }
+
+// Live timer for lockout countdown
+setInterval(() => {
+  if (!isDashboardAuthenticated()) {
+    const meta = getSecurityMeta();
+    if (meta.lockedUntil && Date.now() < meta.lockedUntil) {
+      renderSecurityState();
+    }
+  }
+}, 1000);
 
 // Wire Auth Form
 const authForm = document.getElementById('auth-login-form');
