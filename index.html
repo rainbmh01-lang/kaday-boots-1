@@ -223,9 +223,9 @@
                 <option value="58">58 El Meniaa المنيعة</option>
               </select>
 
-              <!-- Custom Attractive Wilaya Selector -->
+              <!-- Custom Wilaya Trigger -->
               <div class="custom-wilaya-selector" id="custom-wilaya-selector">
-                <div class="custom-wilaya-trigger" id="custom-wilaya-trigger" tabindex="0" role="button" aria-haspopup="listbox" aria-expanded="false">
+                <div class="custom-wilaya-trigger" id="custom-wilaya-trigger" tabindex="0" role="button" aria-haspopup="dialog" aria-expanded="false">
                   <div class="trigger-left">
                     <span class="wilaya-field-icon">
                       <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor">
@@ -239,23 +239,6 @@
                       <path d="m6 9 6 6 6-6"/>
                     </svg>
                   </span>
-                </div>
-
-                <!-- Custom Dropdown Card -->
-                <div class="custom-wilaya-dropdown" id="custom-wilaya-dropdown">
-                  <div class="wilaya-search-header">
-                    <div class="wilaya-search-input-wrap">
-                      <svg class="search-svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                      </svg>
-                      <input type="text" id="wilaya-search-input" placeholder="ابحث برقم الولاية أو اسمها..." autocomplete="off">
-                      <button type="button" class="clear-search-btn" id="clear-wilaya-search" style="display: none;">&times;</button>
-                    </div>
-                  </div>
-                  <div class="wilaya-options-scroll" id="wilaya-options-list" role="listbox">
-                    <!-- Populated dynamically via JS -->
-                  </div>
                 </div>
               </div>
               <div class="field-error-msg" id="province-error"></div>
@@ -361,6 +344,42 @@
       </div>
     </div>
 
+
+  <!-- Dark Wilaya Modal Dialog (Exact Reference from Image 1) -->
+  <div class="wilaya-dark-overlay" id="wilaya-dark-overlay" style="display: none;">
+    <div class="wilaya-dark-dialog" role="dialog" aria-modal="true" aria-labelledby="wilaya-modal-title">
+      <div class="wilaya-dark-header">
+        <div class="wilaya-dark-actions-left">
+          <button type="button" class="wilaya-dark-close-btn" id="wilaya-dark-close-btn" aria-label="إغلاق">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="9"/>
+              <circle cx="12" cy="12" r="3.5" fill="currentColor"/>
+            </svg>
+          </button>
+          <button type="button" class="wilaya-dark-search-btn" id="wilaya-dark-search-btn" aria-label="بحث">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </button>
+        </div>
+        <div class="wilaya-dark-title" id="wilaya-modal-title">
+          <span>الولاية</span>
+          <span>🌍</span>
+        </div>
+      </div>
+
+      <!-- Collapsible Search (initially hidden, expands only if search icon is tapped) -->
+      <div class="wilaya-dark-search-wrap" id="wilaya-dark-search-wrap" style="display: none;">
+        <input type="text" id="wilaya-dark-search-input" placeholder="ابحث برقم الولاية أو اسمها..." autocomplete="off">
+        <button type="button" class="wilaya-dark-search-clear" id="wilaya-dark-search-clear">&times;</button>
+      </div>
+
+      <div class="wilaya-dark-list" id="wilaya-dark-list" role="radiogroup">
+        <!-- 58 Wilaya Items rendered dynamically -->
+      </div>
+    </div>
+  </div>
 
   <!-- Order Success Modal -->
   <div class="modal-backdrop" id="success-modal" style="display: none;">

@@ -73,14 +73,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 3. Custom Searchable Wilaya Selector
+  // 3. Dark Wilaya Modal Selector (Exact Image 1 Design)
   const customWilayaSelector = document.getElementById('custom-wilaya-selector');
   const customWilayaTrigger = document.getElementById('custom-wilaya-trigger');
   const customWilayaDisplay = document.getElementById('custom-wilaya-display');
-  const wilayaDropdown = document.getElementById('custom-wilaya-dropdown');
-  const wilayaSearchInput = document.getElementById('wilaya-search-input');
-  const clearWilayaSearch = document.getElementById('clear-wilaya-search');
-  const wilayaOptionsList = document.getElementById('wilaya-options-list');
+
+  const wilayaDarkOverlay = document.getElementById('wilaya-dark-overlay');
+  const wilayaDarkCloseBtn = document.getElementById('wilaya-dark-close-btn');
+  const wilayaDarkSearchBtn = document.getElementById('wilaya-dark-search-btn');
+  const wilayaDarkSearchWrap = document.getElementById('wilaya-dark-search-wrap');
+  const wilayaDarkSearchInput = document.getElementById('wilaya-dark-search-input');
+  const wilayaDarkSearchClear = document.getElementById('wilaya-dark-search-clear');
+  const wilayaDarkList = document.getElementById('wilaya-dark-list');
 
   const wilayaList = [];
   const rawOptions = Array.from(provinceSelect.querySelectorAll('option')).filter(o => o.value);
@@ -98,9 +102,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  function renderWilayaOptions(filterText = '') {
+  function renderWilayaDarkOptions(filterText = '') {
     const query = filterText.trim().toLowerCase();
-    wilayaOptionsList.innerHTML = '';
+    wilayaDarkList.innerHTML = '';
 
     const filtered = wilayaList.filter(item => {
       if (!query) return true;
@@ -110,30 +114,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (filtered.length === 0) {
-      wilayaOptionsList.innerHTML = '<div class="wilaya-empty-msg">لا توجد ولاية مطابقة للبحث</div>';
+      wilayaDarkList.innerHTML = '<div class="wilaya-dark-empty">لا توجد ولاية مطابقة للبحث</div>';
       return;
     }
 
     filtered.forEach(item => {
       const isSelected = provinceSelect.value === item.code;
       const row = document.createElement('div');
-      row.className = `wilaya-option-row ${isSelected ? 'selected' : ''}`;
+      row.className = `wilaya-dark-item ${isSelected ? 'selected' : ''}`;
       row.setAttribute('data-value', item.code);
+      row.setAttribute('role', 'radio');
+      row.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+      
+      // Text on right: Arabic - Code French Name | Radio on left
       row.innerHTML = `
-        <div class="wilaya-row-left">
-          <span class="wilaya-code-badge">${item.code}</span>
-          <span class="wilaya-fr-name">${item.fr}</span>
-        </div>
-        <div class="wilaya-row-right">
-          <span class="wilaya-ar-name">${item.ar}</span>
-          ${isSelected ? `
-            <span class="wilaya-check-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-            </span>
-          ` : ''}
-        </div>
+        <span class="wilaya-dark-text">${item.ar} - ${item.code} ${item.fr}</span>
+        <span class="wilaya-dark-radio ${isSelected ? 'checked' : ''}"></span>
       `;
 
       row.addEventListener('click', (e) => {
@@ -141,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selectWilaya(item);
       });
 
-      wilayaOptionsList.appendChild(row);
+      wilayaDarkList.appendChild(row);
     });
   }
 
@@ -152,12 +148,12 @@ document.addEventListener('DOMContentLoaded', () => {
     customWilayaDisplay.className = 'trigger-label selected';
     customWilayaDisplay.innerHTML = `
       <span class="selected-wilaya-badge">${item.code}</span>
-      <span>${item.fr}</span>
+      <span>${item.ar}</span>
       <span style="color: #94a3b8;">-</span>
-      <span class="selected-wilaya-ar">${item.ar}</span>
+      <span>${item.fr}</span>
     `;
 
-    closeWilayaDropdown();
+    closeWilayaModal();
     clearFieldError(provinceSelect, provinceError);
   }
 
@@ -167,60 +163,103 @@ document.addEventListener('DOMContentLoaded', () => {
     customWilayaDisplay.textContent = 'اختر الولاية';
   }
 
-  function openWilayaDropdown() {
-    customWilayaSelector.classList.add('open');
-    customWilayaTrigger.setAttribute('aria-expanded', 'true');
-    wilayaSearchInput.value = '';
-    clearWilayaSearch.style.display = 'none';
-    renderWilayaOptions('');
-    setTimeout(() => wilayaSearchInput.focus(), 60);
+  function openWilayaModal() {
+    if (!wilayaDarkOverlay) return;
+    wilayaDarkOverlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    // Collapsed search by default so keyboard never pops up
+    if (wilayaDarkSearchWrap) wilayaDarkSearchWrap.style.display = 'none';
+    if (wilayaDarkSearchInput) wilayaDarkSearchInput.value = '';
+    if (wilayaDarkSearchClear) wilayaDarkSearchClear.style.display = 'none';
+
+    renderWilayaDarkOptions('');
+
+    // Smooth scroll to selected item if one exists
+    const selectedItem = wilayaDarkList.querySelector('.wilaya-dark-item.selected');
+    if (selectedItem) {
+      setTimeout(() => {
+        selectedItem.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }, 50);
+    }
   }
 
-  function closeWilayaDropdown() {
-    customWilayaSelector.classList.remove('open');
-    customWilayaTrigger.setAttribute('aria-expanded', 'false');
+  function closeWilayaModal() {
+    if (!wilayaDarkOverlay) return;
+    wilayaDarkOverlay.style.display = 'none';
+    document.body.style.overflow = '';
   }
 
   if (customWilayaTrigger) {
     customWilayaTrigger.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (customWilayaSelector.classList.contains('open')) {
-        closeWilayaDropdown();
-      } else {
-        openWilayaDropdown();
-      }
+      openWilayaModal();
     });
 
     customWilayaTrigger.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        openWilayaDropdown();
+        openWilayaModal();
       }
     });
   }
 
-  if (wilayaSearchInput) {
-    wilayaSearchInput.addEventListener('input', (e) => {
-      const val = e.target.value;
-      clearWilayaSearch.style.display = val ? 'block' : 'none';
-      renderWilayaOptions(val);
-    });
-
-    clearWilayaSearch.addEventListener('click', () => {
-      wilayaSearchInput.value = '';
-      clearWilayaSearch.style.display = 'none';
-      renderWilayaOptions('');
-      wilayaSearchInput.focus();
+  if (wilayaDarkCloseBtn) {
+    wilayaDarkCloseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeWilayaModal();
     });
   }
 
-  document.addEventListener('click', (e) => {
-    if (customWilayaSelector && !customWilayaSelector.contains(e.target)) {
-      closeWilayaDropdown();
+  if (wilayaDarkOverlay) {
+    wilayaDarkOverlay.addEventListener('click', (e) => {
+      if (e.target === wilayaDarkOverlay) {
+        closeWilayaModal();
+      }
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && wilayaDarkOverlay && wilayaDarkOverlay.style.display === 'flex') {
+      closeWilayaModal();
     }
   });
 
-  renderWilayaOptions('');
+  if (wilayaDarkSearchBtn) {
+    wilayaDarkSearchBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isVisible = wilayaDarkSearchWrap.style.display !== 'none';
+      if (isVisible) {
+        wilayaDarkSearchWrap.style.display = 'none';
+        wilayaDarkSearchInput.value = '';
+        renderWilayaDarkOptions('');
+      } else {
+        wilayaDarkSearchWrap.style.display = 'flex';
+        wilayaDarkSearchInput.focus();
+      }
+    });
+  }
+
+  if (wilayaDarkSearchInput) {
+    wilayaDarkSearchInput.addEventListener('input', (e) => {
+      const val = e.target.value;
+      if (wilayaDarkSearchClear) {
+        wilayaDarkSearchClear.style.display = val ? 'block' : 'none';
+      }
+      renderWilayaDarkOptions(val);
+    });
+  }
+
+  if (wilayaDarkSearchClear) {
+    wilayaDarkSearchClear.addEventListener('click', () => {
+      wilayaDarkSearchInput.value = '';
+      wilayaDarkSearchClear.style.display = 'none';
+      renderWilayaDarkOptions('');
+      wilayaDarkSearchInput.focus();
+    });
+  }
+
+  renderWilayaDarkOptions('');
 
   // 4. Validation Helpers
   function validatePhone(phone) {
