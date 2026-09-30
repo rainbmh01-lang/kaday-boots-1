@@ -454,6 +454,22 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
 
+      // Meta Pixel Purchase Event Tracking
+      if (typeof fbq === 'function') {
+        fbq('track', 'Purchase', {
+          value: totalAmount,
+          currency: 'DZD',
+          content_name: order.product,
+          content_type: 'product',
+          content_ids: ['BOOTS-BEETRO'],
+          num_items: 1
+        });
+        fbq('track', 'Lead', {
+          value: totalAmount,
+          currency: 'DZD'
+        });
+      }
+
       // Reset Button State
       btnTitleRow.style.display = 'flex';
       btnSpinner.style.display = 'none';
