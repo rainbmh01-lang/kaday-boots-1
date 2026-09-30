@@ -354,7 +354,10 @@ const server = http.createServer(async (req, res) => {
   let filePath = decodeURIComponent(reqPath);
   if (filePath === '/') filePath = '/index.html';
 
-  const fullPath = path.join(__dirname, filePath);
+  let fullPath = path.join(__dirname, filePath);
+  if (!fs.existsSync(fullPath) && fs.existsSync(fullPath + '.html')) {
+    fullPath = fullPath + '.html';
+  }
 
   fs.stat(fullPath, (err, stats) => {
     if (err || !stats.isFile()) {
