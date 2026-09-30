@@ -2,6 +2,7 @@
   "name": "matjari-store",
   "version": "1.0.0",
   "description": "Replica of Shopify store product page with COD Cash on Delivery fast checkout",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
