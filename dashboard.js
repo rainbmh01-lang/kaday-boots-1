@@ -1523,6 +1523,62 @@ const LOCKOUT_MS = 60 * 60 * 1000; // 1 hour lockout
 const AUTH_STORAGE_KEY = 'kadya_auth_session_token';
 const ATTEMPTS_STORAGE_KEY = 'kadya_auth_attempts_meta';
 
+// Authoritative Server-Clock Calibration (Immune to client clock manipulation)
+let serverTimeOffset = 0;
+let serverTimeCalibrated = false;
+
+async function syncServerTime() {
+  try {
+    const t0 = performance.now();
+    let serverNow = 0;
+
+    // 1. Dedicated server time endpoint
+    try {
+      const res = await fetch('/api/time', { method: 'GET', cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        if (json && json.timestamp) serverNow = json.timestamp;
+      }
+    } catch (e) {}
+
+    // 2. HTTP Date header from server / CDN (Vercel)
+    if (!serverNow) {
+      try {
+        const headRes = await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
+        const dateHdr = headRes.headers.get('date');
+        if (dateHdr) serverNow = new Date(dateHdr).getTime();
+      } catch (e) {}
+    }
+
+    // 3. Fallback to global NTP atomic time API
+    if (!serverNow) {
+      try {
+        const publicRes = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC', { cache: 'no-store' });
+        if (publicRes.ok) {
+          const data = await publicRes.json();
+          if (data && data.utc_datetime) serverNow = new Date(data.utc_datetime).getTime();
+        }
+      } catch (e) {}
+    }
+
+    if (serverNow) {
+      const rtt = performance.now() - t0;
+      serverTimeOffset = (serverNow + rtt / 2) - performance.now();
+      serverTimeCalibrated = true;
+    }
+  } catch (err) {
+    console.warn('Clock calibration note:', err);
+  }
+}
+
+// Monotonic hardware-based authoritative timestamp
+function getAuthoritativeNow() {
+  if (serverTimeCalibrated) {
+    return Math.floor(performance.now() + serverTimeOffset);
+  }
+  return Date.now();
+}
+
 // Robust SHA-256 helper with fallback
 async function sha256(message) {
   try {
@@ -1541,16 +1597,24 @@ async function sha256(message) {
 function getSecurityMeta() {
   try {
     const raw = localStorage.getItem(ATTEMPTS_STORAGE_KEY);
-    if (!raw) return { attempts: 0, lockedUntil: 0 };
+    if (!raw) return { attempts: 0, lockedUntil: 0, lockedAt: 0 };
     const meta = JSON.parse(raw);
-    if (meta.lockedUntil && Date.now() > meta.lockedUntil) {
-      const reset = { attempts: 0, lockedUntil: 0 };
+    const now = getAuthoritativeNow();
+
+    // Anti-Tamper: If device clock was manipulated backward
+    if (meta.lockedAt && now < meta.lockedAt - 30000) {
+      return meta;
+    }
+
+    // Expired lockout reset
+    if (meta.lockedUntil && now > meta.lockedUntil) {
+      const reset = { attempts: 0, lockedUntil: 0, lockedAt: 0 };
       localStorage.setItem(ATTEMPTS_STORAGE_KEY, JSON.stringify(reset));
       return reset;
     }
     return meta;
   } catch (e) {
-    return { attempts: 0, lockedUntil: 0 };
+    return { attempts: 0, lockedUntil: 0, lockedAt: 0 };
   }
 }
 
@@ -1574,7 +1638,7 @@ function renderSecurityState() {
 
   if (lockScreen) lockScreen.style.display = 'flex';
   const meta = getSecurityMeta();
-  const now = Date.now();
+  const now = getAuthoritativeNow();
 
   if (meta.lockedUntil && now < meta.lockedUntil) {
     const msLeft = meta.lockedUntil - now;
@@ -1594,11 +1658,12 @@ function renderSecurityState() {
   }
 }
 
-// Live timer for lockout countdown
+// Live timer for lockout countdown (based on monotonic hardware clock)
 setInterval(() => {
   if (!isDashboardAuthenticated()) {
     const meta = getSecurityMeta();
-    if (meta.lockedUntil && Date.now() < meta.lockedUntil) {
+    const now = getAuthoritativeNow();
+    if (meta.lockedUntil && now < meta.lockedUntil) {
       renderSecurityState();
     }
   }
@@ -1639,7 +1704,7 @@ if (authForm) {
 
     if (isMatch) {
       // Success: Reset attempts, clear lockout and set session token
-      localStorage.setItem(ATTEMPTS_STORAGE_KEY, JSON.stringify({ attempts: 0, lockedUntil: 0 }));
+      localStorage.setItem(ATTEMPTS_STORAGE_KEY, JSON.stringify({ attempts: 0, lockedUntil: 0, lockedAt: 0 }));
       const token = 'authenticated_' + AUTH_PASSWORD_HASH.slice(0, 16);
       sessionStorage.setItem(AUTH_STORAGE_KEY, token);
       localStorage.setItem(AUTH_STORAGE_KEY, token);
@@ -1652,15 +1717,17 @@ if (authForm) {
       // Failed Attempt
       const meta = getSecurityMeta();
       meta.attempts = (meta.attempts || 0) + 1;
+      const now = getAuthoritativeNow();
       if (meta.attempts >= MAX_ATTEMPTS) {
-        meta.lockedUntil = Date.now() + LOCKOUT_MS;
+        meta.lockedAt = now;
+        meta.lockedUntil = now + LOCKOUT_MS;
       }
       localStorage.setItem(ATTEMPTS_STORAGE_KEY, JSON.stringify(meta));
 
       authPwdInput.value = '';
       authErrorMsg.style.display = 'block';
 
-      if (meta.lockedUntil && Date.now() < meta.lockedUntil) {
+      if (meta.lockedUntil && now < meta.lockedUntil) {
         authErrorMsg.textContent = '⛔ كلمة المرور خاطئة! تم قفل لوحة التحكم لمدة ساعة كاملة بعد استنفاد 3 محاولات.';
       } else {
         const left = Math.max(0, MAX_ATTEMPTS - meta.attempts);
@@ -1683,6 +1750,7 @@ if (logoutBtn) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+  await syncServerTime();
   renderSecurityState();
   if (isDashboardAuthenticated()) {
     await loadCommunesDatabase();

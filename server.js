@@ -68,6 +68,11 @@ const server = http.createServer(async (req, res) => {
 
   const [reqPath] = req.url.split('?');
 
+  // API Route: GET /api/time (Server Atomic Clock Timestamp)
+  if (reqPath === '/api/time') {
+    return sendJSON(res, 200, { timestamp: Date.now() });
+  }
+
   // API Route: GET /api/orders (Fetch all orders via Google Sheets API v4)
   if (reqPath === '/api/orders' && req.method === 'GET') {
     try {
