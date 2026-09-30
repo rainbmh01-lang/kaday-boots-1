@@ -14,47 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedSize: '42'
   };
 
-  // ================= Admin Unlimited Testing Mode for Owner Device =================
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.has('admin') || urlParams.has('unlimited') || urlParams.has('test')) {
-    localStorage.setItem('kadya_admin_device', 'true');
-    localStorage.removeItem('kadya_device_last_order');
-    localStorage.removeItem('kadya_phone_history');
-  }
-
-  // Secret shortcut: Clicking the store logo 5 times unlocks unlimited testing mode
-  let logoClickCount = 0;
-  let logoClickTimer = null;
-  const siteLogo = document.querySelector('.site-logo');
-  if (siteLogo) {
-    siteLogo.addEventListener('click', (e) => {
-      logoClickCount++;
-      clearTimeout(logoClickTimer);
-      logoClickTimer = setTimeout(() => { logoClickCount = 0; }, 3000);
-      if (logoClickCount >= 5) {
-        logoClickCount = 0;
-        const current = localStorage.getItem('kadya_admin_device') === 'true';
-        if (!current) {
-          localStorage.setItem('kadya_admin_device', 'true');
-          localStorage.removeItem('kadya_device_last_order');
-          localStorage.removeItem('kadya_phone_history');
-          alert('تم تفعيل وضع الطلبات غير المحدودة لهذا الجهاز بنجاح! ✅ يمكنك الآن إرسال أي عدد من الطلبات التجريبية.');
-        } else {
-          localStorage.removeItem('kadya_admin_device');
-          alert('تم إيقاف وضع الطلبات غير المحدودة.');
-        }
-      }
-    });
-  }
-
-  function isUnlimitedDevice() {
-    return localStorage.getItem('kadya_admin_device') === 'true' ||
-           localStorage.getItem('kadya_auth_v1') !== null ||
-           urlParams.has('admin') ||
-           urlParams.has('unlimited') ||
-           urlParams.has('test');
-  }
-
   // Track ViewContent for Meta Pixel
   if (typeof fbq === 'function') {
     fbq('track', 'ViewContent', {
@@ -397,23 +356,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const cleanPhone = phone.replace(/\D/g, '');
     const nowMs = Date.now();
     const DAY_MS = 24 * 60 * 60 * 1000;
-    const isAdmin = isUnlimitedDevice();
 
-    if (!isAdmin) {
-      // 1. Device Limit: Max 1 order per phone/browser per 24 hours
-      const lastDeviceOrder = JSON.parse(localStorage.getItem('kadya_device_last_order') || '{}');
-      if (lastDeviceOrder.time && (nowMs - lastDeviceOrder.time < DAY_MS)) {
-        const hoursLeft = Math.ceil((DAY_MS - (nowMs - lastDeviceOrder.time)) / (60 * 60 * 1000));
-        setFieldError(phoneInput, phoneError, `عذراً، تم تسجيل طلب من هذا الهاتف/الجهاز اليوم بالفعل. سنتصل بك لتأكيده، أو يمكنك إرسال طلب جديد بعد ${hoursLeft} ساعة.`);
-        return;
-      }
+    // 1. Device Limit: Max 1 order per phone/browser per 24 hours
+    const lastDeviceOrder = JSON.parse(localStorage.getItem('kadya_device_last_order') || '{}');
+    if (lastDeviceOrder.time && (nowMs - lastDeviceOrder.time < DAY_MS)) {
+      const hoursLeft = Math.ceil((DAY_MS - (nowMs - lastDeviceOrder.time)) / (60 * 60 * 1000));
+      setFieldError(phoneInput, phoneError, `عذراً، تم تسجيل طلب من هذا الهاتف/الجهاز اليوم بالفعل. سنتصل بك لتأكيده، أو يمكنك إرسال طلب جديد بعد ${hoursLeft} ساعة.`);
+      return;
+    }
 
-      // 2. Phone Limit: Max 1 order per phone number per 24 hours
-      const phoneHistory = JSON.parse(localStorage.getItem('kadya_phone_history') || '{}');
-      if (phoneHistory[cleanPhone] && (nowMs - phoneHistory[cleanPhone] < DAY_MS)) {
-        setFieldError(phoneInput, phoneError, 'تم تسجيل طلب بهذا الرقم اليوم مسبقاً، سنتصل بك لتأكيد طلبك قريباً.');
-        return;
-      }
+    // 2. Phone Limit: Max 1 order per phone number per 24 hours
+    const phoneHistory = JSON.parse(localStorage.getItem('kadya_phone_history') || '{}');
+    if (phoneHistory[cleanPhone] && (nowMs - phoneHistory[cleanPhone] < DAY_MS)) {
+      setFieldError(phoneInput, phoneError, 'تم تسجيل طلب بهذا الرقم اليوم مسبقاً، سنتصل بك لتأكيد طلبك قريباً.');
+      return;
     }
 
     // Enter Loading State
@@ -440,9 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
       shippingFee: state.shippingFee + ' DA',
       total: formatDZD(totalAmount),
       product: 'BOOTS DE SECURITE BEETRO',
-      subtotal: state.subtotal,
-      isAdminTest: isAdmin,
-      isManualOrder: isAdmin
+      subtotal: state.subtotal
     };
 
     // Send order to Google Sheets API v4 or fallback
@@ -453,14 +407,11 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const apiRes = await fetch('/api/orders', {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            ...(isAdmin ? { 'X-Admin-Test': 'true' } : {})
-          },
-          body: JSON.stringify({ order: order, isAdminTest: isAdmin, isManualOrder: isAdmin })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order: order })
         });
 
-        if (apiRes.status === 429 && !isAdmin) {
+        if (apiRes.status === 429) {
           isRateLimited = true;
           const errData = await apiRes.json().catch(() => ({}));
           limitMessage = errData.message || 'عذراً، تم تسجيل طلب مسبق من هذا الاتصال أو الرقم اليوم.';
@@ -482,16 +433,14 @@ document.addEventListener('DOMContentLoaded', () => {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'add_order', order: order, isAdminTest: isAdmin, isManualOrder: isAdmin })
+          body: JSON.stringify({ action: 'add_order', order: order })
         }).catch(err => console.warn('Google Sheets sync notice:', err));
       }
 
-      if (!isAdmin) {
-        // Record successful order in localStorage to block spam
-        localStorage.setItem('kadya_device_last_order', JSON.stringify({ time: Date.now(), phone: cleanPhone }));
-        phoneHistory[cleanPhone] = Date.now();
-        localStorage.setItem('kadya_phone_history', JSON.stringify(phoneHistory));
-      }
+      // Record successful order in localStorage to block spam
+      localStorage.setItem('kadya_device_last_order', JSON.stringify({ time: Date.now(), phone: cleanPhone }));
+      phoneHistory[cleanPhone] = Date.now();
+      localStorage.setItem('kadya_phone_history', JSON.stringify(phoneHistory));
 
       // Save to local orders list
       try {

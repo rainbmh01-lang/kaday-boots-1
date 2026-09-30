@@ -179,11 +179,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const data = await parseBody(req);
       const order = data.order || data;
-      const isManual = data.isManualOrder === true ||
-                       order.isManualOrder === true ||
-                       data.isAdminTest === true ||
-                       order.isAdminTest === true ||
-                       req.headers['x-admin-test'] === 'true';
+      const isManual = data.isManualOrder === true || order.isManualOrder === true;
 
       const clientIp = getClientIP(req);
       const rawPhone = order.phone || '';

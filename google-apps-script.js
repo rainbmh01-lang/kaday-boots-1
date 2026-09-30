@@ -145,7 +145,7 @@ function doPost(e) {
 
     // 3. إضافة طلب جديد من المتجر مع فحص الحماية من التكرار
     var order = data.order || data;
-    var isManual = data.isManualOrder === true || order.isManualOrder === true || data.isAdminTest === true || order.isAdminTest === true;
+    var isManual = data.isManualOrder === true || order.isManualOrder === true;
 
     var cleanPhone = String(order.phone || "").replace(/\D/g, "");
     if (cleanPhone.indexOf("213") === 0) cleanPhone = "0" + cleanPhone.substring(3);
