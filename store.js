@@ -14,6 +14,16 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedSize: '42'
   };
 
+  // Track ViewContent for Meta Pixel
+  if (typeof fbq === 'function') {
+    fbq('track', 'ViewContent', {
+      content_name: 'BOOTS DE SECURITE BEETRO',
+      content_type: 'product',
+      value: 4400,
+      currency: 'DZD'
+    });
+  }
+
   // DOM Elements
   const sizePills = document.querySelectorAll('.size-pill');
   const shippingRadios = document.querySelectorAll('input[name="shipping_choice"]');
