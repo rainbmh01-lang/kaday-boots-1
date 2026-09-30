@@ -8,12 +8,20 @@ let port = parseInt(process.env.PORT, 10) || 8080;
 const KEY_FILE = path.join(__dirname, 'kadya-store-02b5cb9020d5.json');
 const SPREADSHEET_ID = '1RMInpkUIrk0HBdkAgcTAoQfYSAOTeWQzdj6lM6THTrA';
 
-// Google Sheets API Auth
-const auth = new google.auth.GoogleAuth({
-  keyFile: KEY_FILE,
-  scopes: ['https://www.googleapis.com/auth/spreadsheets']
-});
-const sheets = google.sheets({ version: 'v4', auth });
+// Google Sheets API Auth (Safe check for local & cloud)
+let auth = null;
+let sheets = null;
+if (fs.existsSync(KEY_FILE)) {
+  try {
+    auth = new google.auth.GoogleAuth({
+      keyFile: KEY_FILE,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets']
+    });
+    sheets = google.sheets({ version: 'v4', auth });
+  } catch (err) {
+    console.warn('Google Auth warning:', err.message);
+  }
+}
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=UTF-8',
