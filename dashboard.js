@@ -196,12 +196,13 @@ async function fetchOrders(showSpinner = true) {
     } catch (e) {}
 
     if (!data || data.status !== 'success') {
-      const sheetRes = await fetch(GOOGLE_SHEET_URL, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
-      });
-      const text = await sheetRes.text();
-      try { data = JSON.parse(text); } catch (e) { data = null; }
+      try {
+        const sheetRes = await fetch(GOOGLE_SHEET_URL);
+        const text = await sheetRes.text();
+        try { data = JSON.parse(text); } catch (e) { data = null; }
+      } catch (e) {
+        console.warn('Direct Google Sheet fetch error:', e);
+      }
     }
 
     if (data && data.status === 'success' && Array.isArray(data.orders)) {

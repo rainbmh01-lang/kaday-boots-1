@@ -8,6 +8,8 @@ let port = parseInt(process.env.PORT, 10) || 8080;
 const KEY_FILE = path.join(__dirname, 'kadya-store-02b5cb9020d5.json');
 const SPREADSHEET_ID = '1RMInpkUIrk0HBdkAgcTAoQfYSAOTeWQzdj6lM6THTrA';
 
+const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyg8afLE6kc3-xVOgsDtLRtmCXbCK16Cc2BpY_HFJTvKGgj993M0uSX0qMqxeDwlwZuCg/exec';
+
 // Google Sheets API Auth (Safe check for local & cloud)
 let auth = null;
 let sheets = null;
@@ -20,6 +22,17 @@ if (fs.existsSync(KEY_FILE)) {
     sheets = google.sheets({ version: 'v4', auth });
   } catch (err) {
     console.warn('Google Auth warning:', err.message);
+  }
+} else if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+  try {
+    const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+    auth = new google.auth.GoogleAuth({
+      credentials: creds,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets']
+    });
+    sheets = google.sheets({ version: 'v4', auth });
+  } catch (err) {
+    console.warn('Google Auth env warning:', err.message);
   }
 }
 
@@ -104,44 +117,60 @@ const server = http.createServer(async (req, res) => {
     return sendJSON(res, 200, { timestamp: Date.now() });
   }
 
-  // API Route: GET /api/orders (Fetch all orders via Google Sheets API v4)
+  // API Route: GET /api/orders (Fetch all orders via Google Sheets API v4 or fallback)
   if (reqPath === '/api/orders' && req.method === 'GET') {
-    try {
-      const sheetRes = await sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: 'A:L'
-      });
-
-      const rows = sheetRes.data.values || [];
-      if (rows.length < 2) {
-        return sendJSON(res, 200, { status: 'success', orders: [], total: 0 });
-      }
-
-      const orders = [];
-      for (let i = 1; i < rows.length; i++) {
-        const r = rows[i];
-        if (!r[0]) continue;
-        orders.push({
-          rowIndex: i + 1,
-          id: String(r[0] || '').trim(),
-          date: String(r[1] || '').trim(),
-          customer: String(r[2] || '').trim(),
-          status: String(r[3] || 'جديد').trim(),
-          phone: String(r[4] || '').replace(/^'/, '').trim(),
-          wilaya: String(r[5] || '').trim(),
-          commune: String(r[6] || '').trim(),
-          size: String(r[7] || '').trim(),
-          shipping: String(r[8] || '').trim(),
-          shippingFee: String(r[9] || '').trim(),
-          total: String(r[10] || '').trim(),
-          notes: String(r[11] || '').trim()
+    if (sheets) {
+      try {
+        const sheetRes = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'A:L'
         });
-      }
 
-      return sendJSON(res, 200, { status: 'success', orders: orders, total: orders.length });
+        const rows = sheetRes.data.values || [];
+        if (rows.length < 2) {
+          return sendJSON(res, 200, { status: 'success', orders: [], total: 0 });
+        }
+
+        const orders = [];
+        for (let i = 1; i < rows.length; i++) {
+          const r = rows[i];
+          if (!r[0]) continue;
+          orders.push({
+            rowIndex: i + 1,
+            id: String(r[0] || '').trim(),
+            date: String(r[1] || '').trim(),
+            customer: String(r[2] || '').trim(),
+            status: String(r[3] || 'جديد').trim(),
+            phone: String(r[4] || '').replace(/^'/, '').trim(),
+            wilaya: String(r[5] || '').trim(),
+            commune: String(r[6] || '').trim(),
+            size: String(r[7] || '').trim(),
+            shipping: String(r[8] || '').trim(),
+            shippingFee: String(r[9] || '').trim(),
+            total: String(r[10] || '').trim(),
+            notes: String(r[11] || '').trim()
+          });
+        }
+
+        return sendJSON(res, 200, { status: 'success', orders: orders, total: orders.length });
+      } catch (err) {
+        console.warn('Sheets API v4 error, falling back to Apps Script:', err.message);
+      }
+    }
+
+    // Proxy to Apps Script URL directly
+    try {
+      const gRes = await fetch(GOOGLE_SHEET_URL);
+      const text = await gRes.text();
+      try {
+        const parsed = JSON.parse(text);
+        return sendJSON(res, 200, parsed);
+      } catch (e) {
+        return sendJSON(res, 200, { status: 'fallback_text', message: text });
+      }
     } catch (err) {
       console.error('API Error (GET /api/orders):', err);
-      return sendJSON(res, 500, { status: 'error', message: err.message });
+      return sendJSON(res, 502, { status: 'error', message: err.message });
     }
   }
 
