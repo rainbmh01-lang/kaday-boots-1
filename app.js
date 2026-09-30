@@ -303,10 +303,23 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Anti-Spam Check: prevent duplicate submission for same phone within 5 minutes
-    const lastOrder = JSON.parse(localStorage.getItem('last_order_meta') || '{}');
-    if (lastOrder.phone === phone && (Date.now() - lastOrder.time < 5 * 60 * 1000)) {
-      setFieldError(phoneInput, phoneError, 'لقد قمت بإرسال طلب بهذا الرقم بالفعل منذ لحظات، سنتصل بك لتأكيده.');
+    // ================= Anti-Fraud & Anti-Spam (24 Hours per Phone & Device) =================
+    const cleanPhone = phone.replace(/\D/g, '');
+    const nowMs = Date.now();
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
+    // 1. Device Limit: Max 1 order per phone/browser per 24 hours
+    const lastDeviceOrder = JSON.parse(localStorage.getItem('kadya_device_last_order') || '{}');
+    if (lastDeviceOrder.time && (nowMs - lastDeviceOrder.time < DAY_MS)) {
+      const hoursLeft = Math.ceil((DAY_MS - (nowMs - lastDeviceOrder.time)) / (60 * 60 * 1000));
+      setFieldError(phoneInput, phoneError, `عذراً، تم تسجيل طلب من هذا الهاتف/الجهاز اليوم بالفعل. سنتصل بك لتأكيده، أو يمكنك إرسال طلب جديد بعد ${hoursLeft} ساعة.`);
+      return;
+    }
+
+    // 2. Phone Limit: Max 1 order per phone number per 24 hours
+    const phoneHistory = JSON.parse(localStorage.getItem('kadya_phone_history') || '{}');
+    if (phoneHistory[cleanPhone] && (nowMs - phoneHistory[cleanPhone] < DAY_MS)) {
+      setFieldError(phoneInput, phoneError, 'تم تسجيل طلب بهذا الرقم اليوم مسبقاً، سنتصل بك لتأكيد طلبك قريباً.');
       return;
     }
 
@@ -339,34 +352,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Send order to Google Sheets API v4 or fallback
     (async () => {
-      let ok = false;
+      let isRateLimited = false;
+      let limitMessage = '';
+
       try {
         const apiRes = await fetch('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ order: order })
         });
-        if (apiRes.ok) ok = true;
+
+        if (apiRes.status === 429) {
+          isRateLimited = true;
+          const errData = await apiRes.json().catch(() => ({}));
+          limitMessage = errData.message || 'عذراً، تم تسجيل طلب مسبق من هذا الاتصال أو الرقم اليوم.';
+        }
       } catch (e) {}
 
-      if (!ok) {
-        const targetSheetUrl = GOOGLE_SHEET_URL || localStorage.getItem('google_sheet_url') || '';
-        if (targetSheetUrl) {
-          fetch(targetSheetUrl, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'add_order', order: order })
-          }).catch(err => console.warn('Google Sheets sync notice:', err));
-        }
+      if (isRateLimited) {
+        btnTitleRow.style.display = 'flex';
+        btnSpinner.style.display = 'none';
+        submitBtn.disabled = false;
+        setFieldError(phoneInput, phoneError, limitMessage);
+        return;
       }
-    })().catch(err => console.warn('Sync notice:', err));
 
-    setTimeout(() => {
-      // Record submission timestamp for anti-spam
-      localStorage.setItem('last_order_meta', JSON.stringify({ phone: phone, time: Date.now() }));
+      // If local server unavailable, sync to Google Sheet URL directly
+      const targetSheetUrl = GOOGLE_SHEET_URL || localStorage.getItem('google_sheet_url') || '';
+      if (targetSheetUrl) {
+        fetch(targetSheetUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'add_order', order: order })
+        }).catch(err => console.warn('Google Sheets sync notice:', err));
+      }
 
-      // Save to localStorage
+      // Record successful order in localStorage to block spam
+      localStorage.setItem('kadya_device_last_order', JSON.stringify({ time: Date.now(), phone: cleanPhone }));
+      phoneHistory[cleanPhone] = Date.now();
+      localStorage.setItem('kadya_phone_history', JSON.stringify(phoneHistory));
+
+      // Save to local orders list
       try {
         const saved = JSON.parse(localStorage.getItem('matjari_orders') || '[]');
         saved.unshift(order);
@@ -395,7 +422,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Show Modal
       successModal.style.display = 'flex';
-    }, 1000);
+    })().catch(err => {
+      console.warn('Sync notice:', err);
+      btnTitleRow.style.display = 'flex';
+      btnSpinner.style.display = 'none';
+      submitBtn.disabled = false;
+    });
   });
 
   // Modal Close

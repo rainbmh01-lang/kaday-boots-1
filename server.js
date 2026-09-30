@@ -54,6 +54,29 @@ function parseBody(req) {
   });
 }
 
+// Rate Limiting & Anti-Fraud Store (24 Hours per phone & per IP)
+const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+const phoneOrdersMap = new Map(); // cleanPhone -> timestamp
+const ipOrdersMap = new Map();       // ip -> timestamp
+
+function normalizeAlgerianPhone(phone) {
+  let p = String(phone || '').replace(/\D/g, '');
+  if (p.startsWith('213')) p = '0' + p.slice(3);
+  if (p.length === 9 && !p.startsWith('0')) p = '0' + p;
+  return p;
+}
+
+function getClientIP(req) {
+  let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.connection?.remoteAddress || '127.0.0.1';
+  if (typeof ip === 'string' && ip.includes(',')) {
+    ip = ip.split(',')[0].trim();
+  }
+  ip = String(ip || '').trim();
+  if (ip === '::1' || ip === '::ffff:127.0.0.1') ip = '127.0.0.1';
+  if (ip.startsWith('::ffff:')) ip = ip.slice(7);
+  return ip;
+}
+
 const server = http.createServer(async (req, res) => {
   // CORS Preflight
   if (req.method === 'OPTIONS') {
@@ -119,6 +142,75 @@ const server = http.createServer(async (req, res) => {
     try {
       const data = await parseBody(req);
       const order = data.order || data;
+      const isManual = data.isManualOrder === true || order.isManualOrder === true;
+
+      const clientIp = getClientIP(req);
+      const rawPhone = order.phone || '';
+      const cleanPhone = normalizeAlgerianPhone(rawPhone);
+      const now = Date.now();
+
+      // Skip anti-spam only for authenticated dashboard manual orders
+      if (!isManual) {
+        // 1. IP Rate Limit: 1 order per IP per 24 hours
+        if (ipOrdersMap.has(clientIp)) {
+          const lastIpTime = ipOrdersMap.get(clientIp);
+          if (now - lastIpTime < RATE_LIMIT_WINDOW_MS) {
+            const hoursLeft = Math.ceil((RATE_LIMIT_WINDOW_MS - (now - lastIpTime)) / (60 * 60 * 1000));
+            return sendJSON(res, 429, {
+              status: 'rate_limited',
+              reason: 'ip_duplicate',
+              message: `عذراً، تم تسجيل طلب مسبق من هذا الاتصال اليوم. للمزيد من الطلبات يمكنك المحاولة بعد ${hoursLeft} ساعة أو الاتصال بنا.`
+            });
+          }
+        }
+
+        // 2. Phone In-Memory Rate Limit: 1 order per phone per 24 hours
+        if (cleanPhone && phoneOrdersMap.has(cleanPhone)) {
+          const lastPhoneTime = phoneOrdersMap.get(cleanPhone);
+          if (now - lastPhoneTime < RATE_LIMIT_WINDOW_MS) {
+            return sendJSON(res, 429, {
+              status: 'rate_limited',
+              reason: 'phone_duplicate',
+              message: 'عذراً، تم تسجيل طلب بهذا الرقم اليوم مسبقاً. سيتم الاتصال بك لتأكيد طلبك الحالي.'
+            });
+          }
+        }
+
+        // 3. Phone Google Sheets Database Check (Verify against today's orders)
+        try {
+          const sheetRes = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'B:E'
+          });
+          const rows = sheetRes.data.values || [];
+          const today = new Date();
+          const pad = (n) => String(n).padStart(2, '0');
+          const todayPrefix = `${pad(today.getDate())}/${pad(today.getMonth() + 1)}/${today.getFullYear()}`;
+
+          for (let i = 1; i < rows.length; i++) {
+            const rowDate = String(rows[i][0] || '').trim();
+            const rowPhone = normalizeAlgerianPhone(rows[i][3]);
+            if (rowPhone && rowPhone === cleanPhone) {
+              if (rowDate.startsWith(todayPrefix)) {
+                phoneOrdersMap.set(cleanPhone, now);
+                return sendJSON(res, 429, {
+                  status: 'rate_limited',
+                  reason: 'phone_duplicate',
+                  message: 'عذراً، تم تسجيل طلب بهذا الرقم اليوم مسبقاً في النظام. سنتصل بك لتأكيد طلبك.'
+                });
+              }
+            }
+          }
+        } catch (checkErr) {
+          console.warn('Duplicate check warning:', checkErr.message);
+        }
+      }
+
+      // Record successful order attempt for anti-fraud
+      if (!isManual) {
+        ipOrdersMap.set(clientIp, now);
+        if (cleanPhone) phoneOrdersMap.set(cleanPhone, now);
+      }
 
       const shippingClean = (order.shipping && (order.shipping.includes('منزل') || order.shipping === 'home'))
         ? 'منزل'

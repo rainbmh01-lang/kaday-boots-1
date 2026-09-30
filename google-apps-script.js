@@ -143,8 +143,34 @@ function doPost(e) {
       return jsonResponse({ status: "success", updated: updatedCount });
     }
 
-    // 3. إضافة طلب جديد من المتجر
+    // 3. إضافة طلب جديد من المتجر مع فحص الحماية من التكرار
     var order = data.order || data;
+    var isManual = data.isManualOrder === true || order.isManualOrder === true;
+
+    var cleanPhone = String(order.phone || "").replace(/\D/g, "");
+    if (cleanPhone.indexOf("213") === 0) cleanPhone = "0" + cleanPhone.substring(3);
+    if (cleanPhone.length === 9 && cleanPhone.indexOf("0") !== 0) cleanPhone = "0" + cleanPhone;
+
+    // فحص عدم تكرار نفس رقم الهاتف في نفس اليوم (Anti-spam / Anti-fraud)
+    if (!isManual && cleanPhone) {
+      var allRows = sheet.getDataRange().getValues();
+      var todayStr = Utilities.formatDate(new Date(), "GMT+1", "dd/MM/yyyy");
+
+      for (var k = 1; k < allRows.length; k++) {
+        var rowDate = String(allRows[k][1] || "");
+        var rowPhone = String(allRows[k][4] || "").replace(/\D/g, "");
+        if (rowPhone.indexOf("213") === 0) rowPhone = "0" + rowPhone.substring(3);
+        if (rowPhone.length === 9 && rowPhone.indexOf("0") !== 0) rowPhone = "0" + rowPhone;
+
+        if (rowPhone === cleanPhone && rowDate.indexOf(todayStr) !== -1) {
+          return jsonResponse({
+            status: "rate_limited",
+            message: "تم تسجيل طلب بهذا الرقم اليوم مسبقاً، سنتصل بك لتأكيده."
+          });
+        }
+      }
+    }
+
     var shippingClean = "مكتب";
     if (order.shipping && (order.shipping.indexOf("منزل") !== -1 || order.shipping === "home")) {
       shippingClean = "منزل";
