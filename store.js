@@ -153,6 +153,53 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  
+  // Wilaya Shipping Pricing Lookup
+  function getShippingPricesForWilaya(code) {
+    if (!window.WILAYAS_PRICES || !Array.isArray(window.WILAYAS_PRICES)) {
+      return { desk: 500, home: 700, active: true };
+    }
+    const cleanCode = String(code || '').padStart(2, '0');
+    const found = window.WILAYAS_PRICES.find(w => String(w.code).padStart(2, '0') === cleanCode);
+    if (!found) return { desk: 500, home: 700, active: true };
+    return {
+      desk: typeof found.deskPrice === 'number' ? found.deskPrice : 500,
+      home: typeof found.homePrice === 'number' ? found.homePrice : 700,
+      active: found.isActive !== false
+    };
+  }
+
+  function updateShippingUIForSelectedWilaya(code) {
+    const prices = getShippingPricesForWilaya(code);
+    const deskRadio = document.querySelector('input[name="shipping_choice"][value="desk"]');
+    const homeRadio = document.querySelector('input[name="shipping_choice"][value="home"]');
+    const optDeskLabel = document.getElementById('opt-desk');
+    const optHomeLabel = document.getElementById('opt-home');
+
+    if (deskRadio) deskRadio.setAttribute('data-price', prices.desk);
+    if (homeRadio) homeRadio.setAttribute('data-price', prices.home);
+
+    if (optDeskLabel) {
+      const priceSpan = optDeskLabel.querySelector('.shipping-option-price');
+      if (priceSpan) priceSpan.textContent = formatDZD(prices.desk);
+    }
+    if (optHomeLabel) {
+      const priceSpan = optHomeLabel.querySelector('.shipping-option-price');
+      if (priceSpan) priceSpan.textContent = formatDZD(prices.home);
+    }
+
+    // Update active state pricing
+    const currentChoice = document.querySelector('input[name="shipping_choice"]:checked');
+    const isHome = currentChoice && currentChoice.value === 'home';
+    const fee = isHome ? prices.home : prices.desk;
+    state.shippingFee = fee;
+    state.shippingType = isHome ? '\u0645\u0646\u0632\u0644' : '\u0645\u0643\u062a\u0628';
+    state.shippingMethod = isHome
+      ? ('\u0627\u0644\u0645\u0646\u0632\u0644 (' + fee + ' DA)')
+      : ('\u0627\u0644\u0645\u0643\u062a\u0628 (' + fee + ' DA)');
+    updateSummary();
+  }
+
   // 3. Dark Wilaya Modal Selector (Exact Image 1 Design)
   const customWilayaSelector = document.getElementById('custom-wilaya-selector');
   const customWilayaTrigger = document.getElementById('custom-wilaya-trigger');
@@ -235,6 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     closeWilayaModal();
     clearFieldError(provinceSelect, provinceError);
+    updateShippingUIForSelectedWilaya(item.code);
   }
 
   function resetWilaya() {
