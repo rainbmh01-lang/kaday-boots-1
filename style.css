@@ -1095,7 +1095,8 @@ body {
   }
 
   .product-price {
-    display: none;
+    display: block;
+    margin-bottom: 12px;
   }
 
   .mobile-order-now-btn {

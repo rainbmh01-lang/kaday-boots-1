@@ -3,6 +3,30 @@ const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
 
+// Load environment variables from .env if present
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+  try {
+    const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const idx = trimmed.indexOf('=');
+      if (idx !== -1) {
+        const key = trimmed.slice(0, idx).trim();
+        const val = trimmed.slice(idx + 1).trim();
+        if (!process.env[key]) {
+          process.env[key] = val;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to parse .env:', e.message);
+  }
+}
+
+const capiHandler = require('./api/capi');
+
 let port = parseInt(process.env.PORT, 10) || 8080;
 
 const KEY_FILE = path.join(__dirname, 'kadya-store-02b5cb9020d5.json');
@@ -115,6 +139,11 @@ const server = http.createServer(async (req, res) => {
   // API Route: GET /api/time (Server Atomic Clock Timestamp)
   if (reqPath === '/api/time') {
     return sendJSON(res, 200, { timestamp: Date.now() });
+  }
+
+  // API Route: POST /api/capi (Meta Conversions API)
+  if (reqPath === '/api/capi') {
+    return capiHandler(req, res);
   }
 
   // API Route: GET /api/orders (Fetch all orders via Google Sheets API v4 or fallback)

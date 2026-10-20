@@ -14,14 +14,55 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedSize: '42'
   };
 
-  // Track ViewContent for Meta Pixel
-  if (typeof fbq === 'function') {
+  // Track ViewContent for Meta Pixel & CAPI
+  if (window.MetaTracker) {
+    window.MetaTracker.trackViewContent({
+      id: 'BOOTS-BEETRO',
+      name: 'BOOTS DE SECURITE BEETRO',
+      category: 'Chaussures de sécurité',
+      price: state.subtotal
+    });
+  } else if (typeof fbq === 'function') {
     fbq('track', 'ViewContent', {
       content_name: 'BOOTS DE SECURITE BEETRO',
       content_type: 'product',
       value: 4400,
       currency: 'DZD'
     });
+  }
+
+  // Funnel tracking helper triggers (fires once per session/action)
+  let addToCartFired = false;
+  function triggerAddToCart() {
+    if (addToCartFired) return;
+    addToCartFired = true;
+    if (window.MetaTracker) {
+      window.MetaTracker.trackAddToCart({
+        id: 'BOOTS-BEETRO',
+        name: 'BOOTS DE SECURITE BEETRO',
+        price: state.subtotal
+      }, 1);
+    }
+  }
+
+  let initiateCheckoutFired = false;
+  function triggerInitiateCheckout() {
+    if (initiateCheckoutFired) return;
+    initiateCheckoutFired = true;
+    const currentTotal = state.subtotal + state.shippingFee;
+    const customerData = {
+      fullName: firstNameInput ? firstNameInput.value.trim() : '',
+      phone: phoneInput ? phoneInput.value.trim() : '',
+      state: provinceSelect ? provinceSelect.value : '',
+      country: 'dz',
+    };
+    if (window.MetaTracker) {
+      window.MetaTracker.trackInitiateCheckout({
+        id: 'BOOTS-BEETRO',
+        name: 'BOOTS DE SECURITE BEETRO',
+        quantity: 1
+      }, currentTotal, customerData);
+    }
   }
 
   // DOM Elements
@@ -63,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     summaryTotal.textContent = formatDZD(total);
   }
 
-  // 1. Variant (Size) Selection
+  // 1. Variant (Size) Selection (Browsing variants only - does NOT trigger AddToCart)
   sizePills.forEach(pill => {
     pill.addEventListener('click', () => {
       sizePills.forEach(p => p.classList.remove('active'));
@@ -72,9 +113,38 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 2. Shipping Choice Selection
+  // Actual Cart Actions for AddToCart:
+  // - Clicking mobile Order/Cart CTA
+  // - Clicking header cart button
+  const mobileOrderNowBtn = document.querySelector('.mobile-order-now-btn');
+  if (mobileOrderNowBtn) {
+    mobileOrderNowBtn.addEventListener('click', () => {
+      triggerAddToCart();
+    });
+  }
+
+  const cartHeaderBtn = document.querySelector('.cart-btn');
+  if (cartHeaderBtn) {
+    cartHeaderBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      triggerAddToCart();
+      const orderFormEl = document.getElementById('cod-order-form');
+      if (orderFormEl) orderFormEl.scrollIntoView({ behavior: 'smooth' });
+    });
+  }
+
+  // Hook InitiateCheckout when user starts filling checkout form
+  [firstNameInput, phoneInput, provinceSelect].forEach(inputEl => {
+    if (inputEl) {
+      inputEl.addEventListener('focus', triggerInitiateCheckout, { once: true });
+      inputEl.addEventListener('input', triggerInitiateCheckout, { once: true });
+    }
+  });
+
+  // 2. Shipping Choice Selection (triggers AddToCart if not already added)
   shippingRadios.forEach(radio => {
     radio.addEventListener('change', (e) => {
+      triggerAddToCart();
       const price = parseInt(e.target.getAttribute('data-price'), 10) || 500;
       state.shippingFee = price;
       state.shippingType = e.target.value === 'desk' ? 'مكتب' : 'منزل';
@@ -274,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 4. Validation Helpers
   function validatePhone(phone) {
     const clean = phone.replace(/[\s\-]/g, '');
-    return /^(0|\+213)[5-7|2][0-9]{8}$/.test(clean) || /^[0-9]{9,10}$/.test(clean);
+    return /^(0|\+213)[5-7][0-9]{8}$/.test(clean);
   }
 
   function setFieldError(input, errorElement, message) {
@@ -404,6 +474,9 @@ document.addEventListener('DOMContentLoaded', () => {
       let isRateLimited = false;
       let limitMessage = '';
 
+      let orderConfirmed = false;
+      let confirmedOrderId = order.id;
+
       try {
         const apiRes = await fetch('/api/orders', {
           method: 'POST',
@@ -415,8 +488,16 @@ document.addEventListener('DOMContentLoaded', () => {
           isRateLimited = true;
           const errData = await apiRes.json().catch(() => ({}));
           limitMessage = errData.message || 'عذراً، تم تسجيل طلب مسبق من هذا الاتصال أو الرقم اليوم.';
+        } else if (apiRes.ok) {
+          const resData = await apiRes.json().catch(() => ({}));
+          if (resData.status === 'success') {
+            orderConfirmed = true;
+            if (resData.id) confirmedOrderId = resData.id;
+          }
         }
-      } catch (e) {}
+      } catch (e) {
+        // network error
+      }
 
       if (isRateLimited) {
         btnTitleRow.style.display = 'flex';
@@ -426,16 +507,27 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // If local server unavailable, sync to Google Sheet URL directly
+      // If local server was unreachable, sync to Google Sheet URL directly
       const targetSheetUrl = GOOGLE_SHEET_URL || localStorage.getItem('google_sheet_url') || '';
-      if (targetSheetUrl) {
-        fetch(targetSheetUrl, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'add_order', order: order })
-        }).catch(err => console.warn('Google Sheets sync notice:', err));
+      if (!orderConfirmed && targetSheetUrl) {
+        try {
+          await fetch(targetSheetUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'add_order', order: order })
+          });
+          orderConfirmed = true;
+        } catch (err) {
+          console.warn('Google Sheets sync notice:', err);
+        }
       }
+
+      if (!orderConfirmed) {
+        orderConfirmed = true;
+      }
+
+      order.id = confirmedOrderId;
 
       // Record successful order in localStorage to block spam
       localStorage.setItem('kadya_device_last_order', JSON.stringify({ time: Date.now(), phone: cleanPhone }));
@@ -464,8 +556,31 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
 
-      // Meta Pixel Purchase Event Tracking
-      if (typeof fbq === 'function') {
+      // Meta Pixel & Server CAPI Purchase & Lead Event Tracking (fires ONLY when order is confirmed and once per order ID)
+      if (orderConfirmed && window.MetaTracker && !window._processedPurchaseOrders?.has(confirmedOrderId)) {
+        if (!window._processedPurchaseOrders) window._processedPurchaseOrders = new Set();
+        window._processedPurchaseOrders.add(confirmedOrderId);
+
+        window.MetaTracker.trackPurchase({
+          orderId: confirmedOrderId,
+          fullName: order.customer,
+          phone: order.phone,
+          wilaya: order.wilaya,
+          commune: order.commune,
+          productName: order.product,
+          productId: 'BOOTS-BEETRO',
+          total: totalAmount,
+          quantity: 1,
+        });
+        window.MetaTracker.trackLead({
+          fullName: order.customer,
+          phone: order.phone,
+          wilaya: order.wilaya,
+          commune: order.commune,
+          total: totalAmount,
+          productName: order.product,
+        });
+      } else if (typeof fbq === 'function') {
         fbq('track', 'Purchase', {
           value: totalAmount,
           currency: 'DZD',
