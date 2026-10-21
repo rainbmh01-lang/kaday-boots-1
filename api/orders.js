@@ -99,14 +99,13 @@ async function sendTelegramAlert(order) {
 
   const rawPhone = String(order.phone || '').trim();
   const cleanPhone = normalizeAlgerianPhone(rawPhone);
-  const callUrl = `tel:${cleanPhone || rawPhone}`;
   const waPhone = cleanPhone.startsWith('0') ? ('213' + cleanPhone.slice(1)) : cleanPhone;
   const waUrl = `https://wa.me/${waPhone}`;
 
   const text = `📦 <b>طلب جديد في المتجر!</b> ⚡\n\n` +
     `🆔 <b>رقم الطلب:</b> <code>${order.id || ''}</code>\n` +
     `👤 <b>الاسم:</b> ${order.customer || 'غير محدد'}\n` +
-    `📞 <b>الهاتف:</b> <code>${order.phone || ''}</code>\n` +
+    `📞 <b>الهاتف:</b> <code>${order.phone || ''}</code> (انقر للنسخ/الاتصال)\n` +
     `📍 <b>الولاية:</b> ${order.wilaya || ''}\n` +
     `🚚 <b>التوصيل:</b> ${order.shipping || ''} (${order.shippingFee || ''})\n` +
     `👟 <b>المقاس:</b> ${order.size || ''}\n` +
@@ -116,8 +115,7 @@ async function sendTelegramAlert(order) {
   const keyboard = {
     inline_keyboard: [
       [
-        { text: '📞 اتصال هاتفي مباشر', url: callUrl },
-        { text: '💬 مراسلة واتساب', url: waUrl }
+        { text: '💬 مراسلة واتساب فورية', url: waUrl }
       ]
     ]
   };
