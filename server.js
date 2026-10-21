@@ -26,6 +26,7 @@ if (fs.existsSync(envPath)) {
 }
 
 const capiHandler = require('./api/capi');
+const ordersHandler = require('./api/orders');
 
 let port = parseInt(process.env.PORT, 10) || 8080;
 
@@ -146,6 +147,11 @@ const server = http.createServer(async (req, res) => {
   // API Route: POST /api/capi (Meta Conversions API)
   if (reqPath === '/api/capi') {
     return capiHandler(req, res);
+  }
+
+  // API Route: /api/orders (GET, POST, PUT)
+  if (reqPath === '/api/orders') {
+    return ordersHandler(req, res);
   }
 
   // API Route: GET /api/orders (Fetch all orders via Google Sheets API v4 or fallback)
