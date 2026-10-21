@@ -253,9 +253,12 @@ document.addEventListener('DOMContentLoaded', () => {
       row.setAttribute('role', 'radio');
       row.setAttribute('aria-checked', isSelected ? 'true' : 'false');
       
+      const prices = getShippingPricesForWilaya(item.code);
+      const isAvailable = prices.active;
+      if (!isAvailable) row.classList.add('disabled');
       // Text on right: Arabic - Code French Name | Radio on left
       row.innerHTML = `
-        <span class="wilaya-dark-text">${item.ar} - ${item.code} ${item.fr}</span>
+        <span class="wilaya-dark-text">${item.ar} - ${item.code} ${item.fr} ${!isAvailable ? '<span style="color: #ef4444; font-size: 11px; margin-right: 6px;">(غير متوفر)</span>' : ''}</span>
         <span class="wilaya-dark-radio ${isSelected ? 'checked' : ''}"></span>
       `;
 
@@ -281,8 +284,13 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
 
     closeWilayaModal();
-    clearFieldError(provinceSelect, provinceError);
     updateShippingUIForSelectedWilaya(item.code);
+    const selectedPrices = getShippingPricesForWilaya(item.code);
+    if (!selectedPrices.active) {
+      setFieldError(provinceSelect, provinceError, 'عذراً، خدمة التوصيل غير متوفرة حالياً لهذه الولاية.');
+    } else {
+      clearFieldError(provinceSelect, provinceError);
+    }
   }
 
   function resetWilaya() {
@@ -390,9 +398,20 @@ document.addEventListener('DOMContentLoaded', () => {
   renderWilayaDarkOptions('');
 
   // 4. Validation Helpers
+  function normalizeAlgerianPhoneInput(val) {
+    if (!val) return '';
+    let digits = String(val).trim().replace(/[^\d+]/g, '');
+    if (digits.startsWith('+213')) {
+      digits = '0' + digits.slice(4);
+    } else if (digits.startsWith('213')) {
+      digits = '0' + digits.slice(3);
+    }
+    return digits.replace(/\D/g, '').slice(0, 10);
+  }
+
   function validatePhone(phone) {
-    const clean = phone.replace(/[\s\-]/g, '');
-    return /^(0|\+213)[5-7][0-9]{8}$/.test(clean);
+    const clean = normalizeAlgerianPhoneInput(phone);
+    return /^0[5-7][0-9]{8}$/.test(clean);
   }
 
   function setFieldError(input, errorElement, message) {
@@ -422,7 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Clear errors on input
   firstNameInput.addEventListener('input', () => clearFieldError(firstNameInput, firstNameError));
   phoneInput.addEventListener('input', (e) => {
-    e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+    e.target.value = normalizeAlgerianPhoneInput(e.target.value);
     clearFieldError(phoneInput, phoneError);
   });
   provinceSelect.addEventListener('change', () => clearFieldError(provinceSelect, provinceError));
@@ -460,7 +479,13 @@ document.addEventListener('DOMContentLoaded', () => {
       setFieldError(provinceSelect, provinceError, 'يرجى اختيار الولاية');
       hasError = true;
     } else {
-      clearFieldError(provinceSelect, provinceError);
+      const prices = getShippingPricesForWilaya(province);
+      if (!prices.active) {
+        setFieldError(provinceSelect, provinceError, 'عذراً، خدمة التوصيل غير متوفرة حالياً لهذه الولاية.');
+        hasError = true;
+      } else {
+        clearFieldError(provinceSelect, provinceError);
+      }
     }
 
     if (hasError) {
@@ -474,14 +499,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const cleanPhone = phone.replace(/\D/g, '');
     const nowMs = Date.now();
     const DAY_MS = 24 * 60 * 60 * 1000;
-
-    // 1. Device Limit: Max 1 order per phone/browser per 24 hours
-    const lastDeviceOrder = JSON.parse(localStorage.getItem('kadya_device_last_order') || '{}');
-    if (lastDeviceOrder.time && (nowMs - lastDeviceOrder.time < DAY_MS)) {
-      const hoursLeft = Math.ceil((DAY_MS - (nowMs - lastDeviceOrder.time)) / (60 * 60 * 1000));
-      setFieldError(phoneInput, phoneError, `عذراً، تم تسجيل طلب من هذا الهاتف/الجهاز اليوم بالفعل. سنتصل بك لتأكيده، أو يمكنك إرسال طلب جديد بعد ${hoursLeft} ساعة.`);
-      return;
-    }
 
     // 2. Phone Limit: Max 1 order per phone number per 24 hours
     const phoneHistory = JSON.parse(localStorage.getItem('kadya_phone_history') || '{}');
@@ -572,13 +589,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (!orderConfirmed) {
-        orderConfirmed = true;
+        btnTitleRow.style.display = 'flex';
+        btnSpinner.style.display = 'none';
+        submitBtn.disabled = false;
+        setFieldError(phoneInput, phoneError, 'تعذر إرسال طلبك حالياً، يرجى المحاولة مرة أخرى أو الاتصال بنا مباشرة.');
+        return;
       }
 
       order.id = confirmedOrderId;
 
       // Record successful order in localStorage to block spam
-      localStorage.setItem('kadya_device_last_order', JSON.stringify({ time: Date.now(), phone: cleanPhone }));
       phoneHistory[cleanPhone] = Date.now();
       localStorage.setItem('kadya_phone_history', JSON.stringify(phoneHistory));
 

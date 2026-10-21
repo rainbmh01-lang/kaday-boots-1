@@ -99,10 +99,12 @@ function parseBody(req) {
   });
 }
 
-// Rate Limiting & Anti-Fraud Store (24 Hours per phone & per IP)
+// Rate Limiting & Anti-Fraud Store (Burst limit per IP, Daily limit per phone)
 const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+const IP_BURST_WINDOW_MS = 10 * 60 * 1000; // 10 minutes burst window for CGNAT safety
+const IP_MAX_BURST_ORDERS = 10;            // Allow up to 10 orders per 10m from same IP
 const phoneOrdersMap = new Map(); // cleanPhone -> timestamp
-const ipOrdersMap = new Map();       // ip -> timestamp
+const ipOrdersMap = new Map();       // ip -> [timestamps]
 
 function normalizeAlgerianPhone(phone) {
   let p = String(phone || '').replace(/\D/g, '');
@@ -217,15 +219,15 @@ const server = http.createServer(async (req, res) => {
 
       // Skip anti-spam only for authenticated dashboard manual orders
       if (!isManual) {
-        // 1. IP Rate Limit: 1 order per IP per 24 hours
+        // 1. IP Burst Rate Limit: Max 10 orders per IP per 10 minutes (CGNAT-safe)
         if (ipOrdersMap.has(clientIp)) {
-          const lastIpTime = ipOrdersMap.get(clientIp);
-          if (now - lastIpTime < RATE_LIMIT_WINDOW_MS) {
-            const hoursLeft = Math.ceil((RATE_LIMIT_WINDOW_MS - (now - lastIpTime)) / (60 * 60 * 1000));
+          const timestamps = (ipOrdersMap.get(clientIp) || []).filter(t => now - t < IP_BURST_WINDOW_MS);
+          ipOrdersMap.set(clientIp, timestamps);
+          if (timestamps.length >= IP_MAX_BURST_ORDERS) {
             return sendJSON(res, 429, {
               status: 'rate_limited',
-              reason: 'ip_duplicate',
-              message: `عذراً، تم تسجيل طلب مسبق من هذا الاتصال اليوم. للمزيد من الطلبات يمكنك المحاولة بعد ${hoursLeft} ساعة أو الاتصال بنا.`
+              reason: 'ip_burst_limit',
+              message: 'يرجى الانتظار بضع دقائق قبل إرسال طلب جديد.'
             });
           }
         }
@@ -274,7 +276,7 @@ const server = http.createServer(async (req, res) => {
 
       // Record successful order attempt for anti-fraud
       if (!isManual) {
-        ipOrdersMap.set(clientIp, now);
+        const currentIpOrders = (ipOrdersMap.get(clientIp) || []).filter(t => now - t < IP_BURST_WINDOW_MS); currentIpOrders.push(now); ipOrdersMap.set(clientIp, currentIpOrders);
         if (cleanPhone) phoneOrdersMap.set(cleanPhone, now);
       }
 

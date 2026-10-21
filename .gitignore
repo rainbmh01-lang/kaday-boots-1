@@ -5,3 +5,4 @@ kadya-store-*.json
 Thumbs.db
 
 .vercel
+.env*
