@@ -168,6 +168,11 @@ body {
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
+.gallery-image-wrapper picture {
+  display: block;
+  width: 100%;
+}
+
 .gallery-image-wrapper.secondary-view {
   display: block;
 }
