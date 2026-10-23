@@ -1,9 +1,47 @@
+const fs = require('fs');
+const path = require('path');
+const { google } = require('googleapis');
 const dzship = require('dzship');
 
+// Telegram Configuration
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8691389018:AAE6GfcYSetBtQziix8Gkpe1qEbHh-Uqvfg';
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '7281542331';
+
+// Google Sheets Configuration
+const KEY_FILE = path.join(__dirname, '..', 'kadya-store-02b5cb9020d5.json');
+const SPREADSHEET_ID = '1RMInpkUIrk0HBdkAgcTAoQfYSAOTeWQzdj6lM6THTrA';
+const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyg8afLE6kc3-xVOgsDtLRtmCXbCK16Cc2BpY_HFJTvKGgj993M0uSX0qMqxeDwlwZuCg/exec';
+
+let auth = null;
+let sheets = null;
+
+if (fs.existsSync(KEY_FILE)) {
+  try {
+    auth = new google.auth.GoogleAuth({
+      keyFile: KEY_FILE,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets']
+    });
+    sheets = google.sheets({ version: 'v4', auth });
+  } catch (err) {
+    console.warn('Google Auth file warning:', err.message);
+  }
+} else if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+  try {
+    const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+    auth = new google.auth.GoogleAuth({
+      credentials: creds,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets']
+    });
+    sheets = google.sheets({ version: 'v4', auth });
+  } catch (err) {
+    console.warn('Google Auth env warning:', err.message);
+  }
+}
+
+// ZR Express Configuration
 const ZR_API_KEY = process.env.ZR_API_KEY || '7geIggWo53Dwrm2pdvwUBTFJlFSaun3ygFklLb6FoBwlLe1xQzNwQbFgEKzBEnUi';
 const ZR_TENANT_ID = process.env.ZR_TENANT_ID || 'e7c58aa8-b939-4382-9495-030c2f931d0b';
 
-// Chef-lieu (centre de wilaya) officiel pour les 58 wilayas
 const CHEF_LIEUX = {
   1: 'Adrar',
   2: 'Chlef',
@@ -65,7 +103,6 @@ const CHEF_LIEUX = {
   58: 'El Meniaa'
 };
 
-// Default StopDesks in ZR Express
 const DEFAULT_DESKS = {
   1: "ee77ffe4-19bf-4e34-9435-01a4b7670b7a",
   2: "46a61165-5378-484d-a0c9-f5c1df785df9",
@@ -118,7 +155,7 @@ const zrClient = dzship({
   }
 });
 
-// Anti-Spam Rate Limiting (IP Burst & Phone duplicate protection)
+// Anti-Spam Rate Limiting
 const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const IP_BURST_WINDOW_MS = 10 * 60 * 1000;
 const IP_MAX_BURST_ORDERS = 10;
@@ -201,29 +238,210 @@ function parseCodAmount(total, subtotal, shippingFee) {
   return 4900;
 }
 
+async function sendTelegramAlert(order, zrTracking) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
+
+  const rawPhone = String(order.phone || '').trim();
+  const cleanPhone = normalizeAlgerianPhone(rawPhone);
+  const waPhone = cleanPhone.startsWith('0') ? ('213' + cleanPhone.slice(1)) : cleanPhone;
+  const waUrl = `https://wa.me/${waPhone}`;
+
+  let trackingLine = '';
+  if (zrTracking) {
+    trackingLine = `📦 <b>رقم التتبع (ZR Express):</b> <code>${zrTracking}</code>\n`;
+  }
+
+  const text = `📦 <b>طلب جديد في المتجر!</b> ⚡\n\n` +
+    `🆔 <b>رقم الطلب:</b> <code>${order.id || ''}</code>\n` +
+    trackingLine +
+    `👤 <b>الاسم:</b> ${order.customer || 'غير محدد'}\n` +
+    `📞 <b>الهاتف:</b> <code>${order.phone || ''}</code> (انقر للنسخ/الاتصال)\n` +
+    `📍 <b>الولاية:</b> ${order.wilaya || ''}\n` +
+    `🏙️ <b>البلدية:</b> ${order.commune || ''}\n` +
+    `🚚 <b>التوصيل:</b> ${order.shipping || ''} (${order.shippingFee || ''})\n` +
+    `👟 <b>المقاس:</b> ${order.size || ''}\n` +
+    `💰 <b>الإجمالي:</b> <b>${order.total || ''}</b>\n` +
+    `🕒 <b>التوقيت:</b> ${order.date || new Date().toLocaleString('fr-DZ')}`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: '💬 مراسلة واتساب فورية', url: waUrl }
+      ]
+    ]
+  };
+
+  try {
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID,
+        text: text,
+        parse_mode: 'HTML',
+        reply_markup: keyboard
+      })
+    });
+  } catch (err) {
+    console.warn('Telegram send warning:', err.message);
+  }
+}
+
+async function syncToGoogleSheets(row, order) {
+  let sheetSyncSuccess = false;
+
+  if (sheets) {
+    try {
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: 'A:L',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [row] }
+      });
+      sheetSyncSuccess = true;
+    } catch (e) {
+      console.warn('Sheets API append error, falling back to Webhook:', e.message);
+    }
+  }
+
+  if (!sheetSyncSuccess && GOOGLE_SHEET_URL) {
+    try {
+      await fetch(GOOGLE_SHEET_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add_order', order: order })
+      });
+      sheetSyncSuccess = true;
+    } catch (err) {
+      console.warn('Google Sheet webhook sync error:', err.message);
+    }
+  }
+
+  return sheetSyncSuccess;
+}
+
 async function handler(req, res) {
   ensureResponseHelpers(res);
 
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
   }
 
-  // GET /api/orders (Health check / status)
+  // GET /api/orders (Fetches orders for Dashboard from Google Sheets)
   if (req.method === 'GET') {
-    return res.status(200).json({
-      status: 'success',
-      courier: 'zrexpress',
-      platform: 'zrexpressnew',
-      orders: [],
-      total: 0
-    });
+    if (sheets) {
+      try {
+        const sheetRes = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'A:L'
+        });
+
+        const rows = sheetRes.data.values || [];
+        if (rows.length < 2) {
+          return res.status(200).json({ status: 'success', orders: [], total: 0 });
+        }
+
+        const orders = [];
+        for (let i = 1; i < rows.length; i++) {
+          const r = rows[i];
+          if (!r[0]) continue;
+          orders.push({
+            rowIndex: i + 1,
+            id: String(r[0] || '').trim(),
+            date: String(r[1] || '').trim(),
+            customer: String(r[2] || '').trim(),
+            status: String(r[3] || 'جديد').trim(),
+            phone: String(r[4] || '').replace(/^'/, '').trim(),
+            wilaya: String(r[5] || '').trim(),
+            commune: String(r[6] || '').trim(),
+            size: String(r[7] || '').trim(),
+            shipping: String(r[8] || '').trim(),
+            shippingFee: String(r[9] || '').trim(),
+            total: String(r[10] || '').trim(),
+            notes: String(r[11] || '').trim()
+          });
+        }
+        return res.status(200).json({ status: 'success', orders, total: orders.length });
+      } catch (err) {
+        console.warn('Sheets API GET error, falling back to Apps Script:', err.message);
+      }
+    }
+
+    try {
+      const gRes = await fetch(GOOGLE_SHEET_URL);
+      const data = await gRes.json();
+      return res.status(200).json(data);
+    } catch (err) {
+      return res.status(502).json({ status: 'error', message: err.message });
+    }
   }
 
-  // POST /api/orders (Send directly to ZR Express)
+  // PUT /api/orders (Updates order status / details from Dashboard)
+  if (req.method === 'PUT') {
+    try {
+      const data = await parseBody(req);
+      const targetId = String(data.id || '').trim();
+
+      if (!targetId) {
+        return res.status(400).json({ status: 'error', message: 'Missing order ID' });
+      }
+
+      if (sheets) {
+        const sheetRes = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'A:L'
+        });
+
+        const rows = sheetRes.data.values || [];
+        let targetRow = -1;
+        for (let i = 1; i < rows.length; i++) {
+          if (String(rows[i][0] || '').trim() === targetId) {
+            targetRow = i + 1;
+            break;
+          }
+        }
+
+        if (targetRow !== -1) {
+          const updates = [];
+          if (data.status !== undefined) updates.push({ range: `D${targetRow}`, values: [[String(data.status).trim()]] });
+          if (data.wilaya !== undefined) updates.push({ range: `F${targetRow}`, values: [[String(data.wilaya).trim()]] });
+          if (data.commune !== undefined) updates.push({ range: `G${targetRow}`, values: [[String(data.commune).trim()]] });
+          if (data.size !== undefined) updates.push({ range: `H${targetRow}`, values: [[String(data.size).trim()]] });
+          if (data.shipping !== undefined) updates.push({ range: `I${targetRow}`, values: [[String(data.shipping).trim()]] });
+          if (data.shippingFee !== undefined) updates.push({ range: `J${targetRow}`, values: [[String(data.shippingFee).trim()]] });
+          if (data.total !== undefined) updates.push({ range: `K${targetRow}`, values: [[String(data.total).trim()]] });
+          if (data.notes !== undefined) updates.push({ range: `L${targetRow}`, values: [[String(data.notes).trim()]] });
+
+          if (updates.length > 0) {
+            await sheets.spreadsheets.values.batchUpdate({
+              spreadsheetId: SPREADSHEET_ID,
+              requestBody: { valueInputOption: 'USER_ENTERED', data: updates }
+            });
+          }
+          return res.status(200).json({ status: 'success', message: 'Updated successfully' });
+        }
+      }
+
+      // Fallback via webhook
+      const gRes = await fetch(GOOGLE_SHEET_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_order', ...data })
+      });
+      const gData = await gRes.json();
+      return res.status(200).json(gData);
+
+    } catch (err) {
+      console.error('API Error (PUT /api/orders):', err);
+      return res.status(500).json({ status: 'error', message: err.message });
+    }
+  }
+
+  // POST /api/orders (Creates order in ZR Express + Syncs to Google Sheets & Telegram)
   if (req.method === 'POST') {
     try {
       const data = await parseBody(req);
@@ -272,6 +490,7 @@ async function handler(req, res) {
       // 1. Resolve Wilaya and default Chef-lieu commune
       const wilayaCode = parseWilayaCode(order.wilaya || order.province);
       const communeName = (order.commune && String(order.commune).trim()) || CHEF_LIEUX[wilayaCode] || 'Alger Centre';
+      order.commune = communeName;
 
       // 2. Resolve Delivery Type ('home' or 'stopdesk')
       let deliveryType = (order.shipping && (order.shipping.includes('منزل') || order.shipping === 'home'))
@@ -287,11 +506,8 @@ async function handler(req, res) {
             if (desks && desks.length > 0) {
               stopDeskId = desks[0].id;
             }
-          } catch (e) {
-            console.warn('Could not fetch desk for wilaya', wilayaCode, e.message);
-          }
+          } catch (e) {}
         }
-        // If wilaya has no stopdesk at all, fallback to home delivery
         if (!stopDeskId) {
           deliveryType = 'home';
         }
@@ -302,42 +518,80 @@ async function handler(req, res) {
       const productList = `${order.product || 'BOOTS DE SECURITE BEETRO'}${sizeStr}`;
       const codAmount = parseCodAmount(order.total, order.subtotal, order.shippingFee);
       const reference = order.id || ('CMD-' + Math.floor(100000 + Math.random() * 900000));
+      order.id = reference;
 
-      // 4. Create Order directly on ZR Express
-      const zrPayload = {
-        reference: reference,
-        recipient: {
-          fullName: String(order.customer || order.firstName || order.first_name || 'عميل').trim(),
-          phone: cleanPhone || String(rawPhone).trim(),
-          wilayaCode: wilayaCode,
-          communeName: communeName,
-          address: String(order.address || communeName).trim()
-        },
-        deliveryType: deliveryType,
-        ...(stopDeskId ? { stopDeskId } : {}),
-        productList: productList,
-        codAmount: codAmount
-      };
+      // 4. Send to ZR Express
+      let zrTrackingNumber = null;
+      let zrError = null;
 
-      console.log('Sending direct parcel to ZR Express:', JSON.stringify(zrPayload));
-      const zrResult = await zrClient.createOrder(zrPayload);
-      console.log('ZR Express creation success:', zrResult);
+      try {
+        const zrPayload = {
+          reference: reference,
+          recipient: {
+            fullName: String(order.customer || order.firstName || order.first_name || 'عميل').trim(),
+            phone: cleanPhone || String(rawPhone).trim(),
+            wilayaCode: wilayaCode,
+            communeName: communeName,
+            address: String(order.address || communeName).trim()
+          },
+          deliveryType: deliveryType,
+          ...(stopDeskId ? { stopDeskId } : {}),
+          productList: productList,
+          codAmount: codAmount
+        };
+
+        const zrResult = await zrClient.createOrder(zrPayload);
+        if (zrResult && zrResult.trackingNumber) {
+          zrTrackingNumber = zrResult.trackingNumber;
+        }
+      } catch (err) {
+        zrError = err.message || 'ZR Express Error';
+        console.warn('ZR Express parcel creation warning:', zrError);
+      }
+
+      // 5. Build Google Sheets Row (12 columns)
+      const shippingClean = deliveryType === 'home' ? 'منزل' : 'مكتب';
+      const notesWithTracking = zrTrackingNumber 
+        ? `ZR: ${zrTrackingNumber}`
+        : (zrError ? `خطأ ZR: ${zrError}` : (order.notes || ''));
+
+      const row = [
+        reference,
+        order.date || new Date().toLocaleString('fr-DZ'),
+        order.customer || '',
+        order.status || 'جديد',
+        "'" + (order.phone || ''),
+        order.wilaya || '',
+        communeName,
+        order.size || '',
+        shippingClean,
+        order.shippingFee ? (order.shippingFee.toString().replace(' DA', '') + ' DA') : '500 DA',
+        order.total || (codAmount + ' DA'),
+        notesWithTracking
+      ];
+
+      order.notes = notesWithTracking;
+
+      // 6. Parallel execution: Sync to Google Sheets & Send Telegram Alert
+      const backgroundTasks = [
+        syncToGoogleSheets(row, order),
+        sendTelegramAlert(order, zrTrackingNumber)
+      ];
+
+      // Wait for parallel tasks without blocking client on failures
+      await Promise.allSettled(backgroundTasks);
 
       return res.status(200).json({
         status: 'success',
-        id: zrResult.reference || reference,
-        trackingNumber: zrResult.trackingNumber,
+        id: reference,
+        trackingNumber: zrTrackingNumber,
         courier: 'zrexpress',
-        message: 'تم تسجيل الطلب وإرساله مباشرة إلى شركة التوصيل ZR Express'
+        message: 'تم تسجيل الطلب وإرساله بنجاح'
       });
 
     } catch (err) {
-      console.error('ZR Express Order API Error:', err.message, err.fields || '');
-      return res.status(err.status || 500).json({
-        status: 'error',
-        message: err.message || 'حدث خطأ أثناء إرسال الطلب إلى شركة التوصيل ZR Express',
-        fields: err.fields
-      });
+      console.error('API Error (POST /api/orders):', err);
+      return res.status(500).json({ status: 'error', message: err.message });
     }
   }
 
