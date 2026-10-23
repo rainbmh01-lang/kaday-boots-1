@@ -238,7 +238,7 @@ function parseCodAmount(total, subtotal, shippingFee) {
   return 4900;
 }
 
-async function sendTelegramAlert(order, zrTracking) {
+async function sendTelegramAlert(order, zrTracking = '') {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
 
   const rawPhone = String(order.phone || '').trim();
@@ -272,9 +272,13 @@ async function sendTelegramAlert(order, zrTracking) {
   };
 
   try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3500); // 3.5s strict timeout
+
     await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: ctrl.signal,
       body: JSON.stringify({
         chat_id: TELEGRAM_CHAT_ID,
         text: text,
@@ -282,9 +286,29 @@ async function sendTelegramAlert(order, zrTracking) {
         reply_markup: keyboard
       })
     });
+    clearTimeout(timer);
   } catch (err) {
     console.warn('Telegram send warning:', err.message);
   }
+}
+
+async function sendTelegramTrackingFollowup(reference, trackingNumber) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID || !trackingNumber) return;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3000);
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID,
+        text: `🚚 <b>بوليصة الشحن (ZR Express):</b> <code>${trackingNumber}</code> لطلب <code>${reference}</code>`,
+        parse_mode: 'HTML'
+      })
+    });
+    clearTimeout(timer);
+  } catch (e) {}
 }
 
 async function syncToGoogleSheets(row, order) {
@@ -306,11 +330,15 @@ async function syncToGoogleSheets(row, order) {
 
   if (!sheetSyncSuccess && GOOGLE_SHEET_URL) {
     try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 4000);
       await fetch(GOOGLE_SHEET_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: ctrl.signal,
         body: JSON.stringify({ action: 'add_order', order: order })
       });
+      clearTimeout(timer);
       sheetSyncSuccess = true;
     } catch (err) {
       console.warn('Google Sheet webhook sync error:', err.message);
@@ -318,6 +346,23 @@ async function syncToGoogleSheets(row, order) {
   }
 
   return sheetSyncSuccess;
+}
+
+async function updateGoogleSheetsNotes(reference, notes) {
+  if (!notes) return;
+  if (GOOGLE_SHEET_URL) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 3500);
+      await fetch(GOOGLE_SHEET_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: ctrl.signal,
+        body: JSON.stringify({ action: 'update_order', id: reference, notes: notes })
+      });
+      clearTimeout(timer);
+    } catch (e) {}
+  }
 }
 
 async function handler(req, res) {
@@ -441,7 +486,7 @@ async function handler(req, res) {
     }
   }
 
-  // POST /api/orders (Creates order in ZR Express + Syncs to Google Sheets & Telegram)
+  // POST /api/orders (100% Full Parallel Execution: ZR Express + Sheets + Telegram)
   if (req.method === 'POST') {
     try {
       const data = await parseBody(req);
@@ -520,41 +565,7 @@ async function handler(req, res) {
       const reference = order.id || ('CMD-' + Math.floor(100000 + Math.random() * 900000));
       order.id = reference;
 
-      // 4. Send to ZR Express
-      let zrTrackingNumber = null;
-      let zrError = null;
-
-      try {
-        const zrPayload = {
-          reference: reference,
-          recipient: {
-            fullName: String(order.customer || order.firstName || order.first_name || 'عميل').trim(),
-            phone: cleanPhone || String(rawPhone).trim(),
-            wilayaCode: wilayaCode,
-            communeName: communeName,
-            address: String(order.address || communeName).trim()
-          },
-          deliveryType: deliveryType,
-          ...(stopDeskId ? { stopDeskId } : {}),
-          productList: productList,
-          codAmount: codAmount
-        };
-
-        const zrResult = await zrClient.createOrder(zrPayload);
-        if (zrResult && zrResult.trackingNumber) {
-          zrTrackingNumber = zrResult.trackingNumber;
-        }
-      } catch (err) {
-        zrError = err.message || 'ZR Express Error';
-        console.warn('ZR Express parcel creation warning:', zrError);
-      }
-
-      // 5. Build Google Sheets Row (12 columns)
       const shippingClean = deliveryType === 'home' ? 'منزل' : 'مكتب';
-      const notesWithTracking = zrTrackingNumber 
-        ? `ZR: ${zrTrackingNumber}`
-        : (zrError ? `خطأ ZR: ${zrError}` : (order.notes || ''));
-
       const row = [
         reference,
         order.date || new Date().toLocaleString('fr-DZ'),
@@ -567,19 +578,71 @@ async function handler(req, res) {
         shippingClean,
         order.shippingFee ? (order.shippingFee.toString().replace(' DA', '') + ' DA') : '500 DA',
         order.total || (codAmount + ' DA'),
-        notesWithTracking
+        order.notes || ''
       ];
 
-      order.notes = notesWithTracking;
+      // ==========================================================
+      // 🚀 100% TRUE PARALLEL DISPATCH (All 3 Fire Simultaneously)
+      // ==========================================================
 
-      // 6. Parallel execution: Sync to Google Sheets & Send Telegram Alert
-      const backgroundTasks = [
-        syncToGoogleSheets(row, order),
-        sendTelegramAlert(order, zrTrackingNumber)
-      ];
+      // Task A: ZR Express
+      const zrTask = (async () => {
+        try {
+          const zrPayload = {
+            reference: reference,
+            recipient: {
+              fullName: String(order.customer || order.firstName || order.first_name || 'عميل').trim(),
+              phone: cleanPhone || String(rawPhone).trim(),
+              wilayaCode: wilayaCode,
+              communeName: communeName,
+              address: String(order.address || communeName).trim()
+            },
+            deliveryType: deliveryType,
+            ...(stopDeskId ? { stopDeskId } : {}),
+            productList: productList,
+            codAmount: codAmount
+          };
+          return await zrClient.createOrder(zrPayload);
+        } catch (err) {
+          console.warn('ZR Express parcel creation warning:', err.message);
+          return { error: err.message };
+        }
+      })();
 
-      // Wait for parallel tasks without blocking client on failures
-      await Promise.allSettled(backgroundTasks);
+      // Task B: Google Sheets
+      const sheetTask = (async () => {
+        try {
+          return await syncToGoogleSheets(row, order);
+        } catch (err) {
+          console.warn('Google Sheets sync warning:', err.message);
+          return false;
+        }
+      })();
+
+      // Task C: Telegram Bot Alert
+      const telegramTask = (async () => {
+        try {
+          return await sendTelegramAlert(order);
+        } catch (err) {
+          console.warn('Telegram alert warning:', err.message);
+          return false;
+        }
+      })();
+
+      // Wait for all three simultaneously!
+      const [zrOutcome] = await Promise.allSettled([
+        zrTask,
+        sheetTask,
+        telegramTask
+      ]);
+
+      let zrTrackingNumber = null;
+      if (zrOutcome.status === 'fulfilled' && zrOutcome.value && zrOutcome.value.trackingNumber) {
+        zrTrackingNumber = zrOutcome.value.trackingNumber;
+        // Asynchronously update Google Sheets note & follow-up Telegram in background
+        updateGoogleSheetsNotes(reference, `ZR: ${zrTrackingNumber}`).catch(() => {});
+        sendTelegramTrackingFollowup(reference, zrTrackingNumber).catch(() => {});
+      }
 
       return res.status(200).json({
         status: 'success',
