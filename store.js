@@ -572,22 +572,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // If local server was unreachable, sync to Google Sheet URL directly
-      const targetSheetUrl = GOOGLE_SHEET_URL || localStorage.getItem('google_sheet_url') || '';
-      if (!orderConfirmed && targetSheetUrl) {
-        try {
-          await fetch(targetSheetUrl, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'add_order', order: order })
-          });
-          orderConfirmed = true;
-        } catch (err) {
-          console.warn('Google Sheets sync notice:', err);
-        }
-      }
-
       if (!orderConfirmed) {
         btnTitleRow.style.display = 'flex';
         btnSpinner.style.display = 'none';

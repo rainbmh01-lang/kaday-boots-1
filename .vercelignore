@@ -1,3 +1,9 @@
+node_modules
+kadya-dz
 kadya-store-*.json
 ROADMAP.md
+AUDIT_REPORT.md
+CONTEXT.md
 Desktop.ini
+scripts
+.git
