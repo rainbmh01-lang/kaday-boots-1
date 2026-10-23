@@ -558,7 +558,11 @@ document.addEventListener('DOMContentLoaded', () => {
           if (resData.status === 'success') {
             orderConfirmed = true;
             if (resData.id) confirmedOrderId = resData.id;
+            if (resData.trackingNumber) order.trackingNumber = resData.trackingNumber;
           }
+        } else {
+          const errData = await apiRes.json().catch(() => ({}));
+          limitMessage = errData.message || 'تعذر إرسال طلبك حالياً، يرجى المحاولة لاحقاً.';
         }
       } catch (e) {
         // network error
@@ -598,6 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Populate Success Modal
       modalSummary.innerHTML = `
         <div><strong>رقم الطلب:</strong> ${order.id}</div>
+        ${order.trackingNumber ? `<div><strong>رقم التتبع (ZR Express):</strong> <code style="color: #0284c7; font-weight: bold; background: #f0f9ff; padding: 2px 8px; border-radius: 4px; border: 1px solid #bae6fd;">${order.trackingNumber}</code></div>` : ''}
         <div><strong>المنتج:</strong> ${order.product} (المقاس: ${order.size})</div>
         <div><strong>الاسم:</strong> ${order.customer}</div>
         <div><strong>الهاتف:</strong> ${order.phone}</div>

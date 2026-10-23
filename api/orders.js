@@ -310,7 +310,8 @@ async function handler(req, res) {
           fullName: String(order.customer || order.firstName || order.first_name || 'عميل').trim(),
           phone: cleanPhone || String(rawPhone).trim(),
           wilayaCode: wilayaCode,
-          communeName: communeName
+          communeName: communeName,
+          address: String(order.address || communeName).trim()
         },
         deliveryType: deliveryType,
         ...(stopDeskId ? { stopDeskId } : {}),
